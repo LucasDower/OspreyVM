@@ -8,9 +8,9 @@
 int main()
 {
 	const std::string script =
-		"x = 3;\n"
-		"y = 4;\n"
-		"return x + y + 1;";
+		"x: i32 = 3;\n"
+		"y: i32 = 4;\n"
+		"return x + y + 1.0f;";
 
 	std::optional<Osprey::TokenBuffer> tokens = Osprey::Tokenise(script);
 	if (!tokens)

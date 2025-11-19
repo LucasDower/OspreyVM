@@ -1,5 +1,7 @@
 #include "Parser.h"
 
+#include "Types.h"
+
 #include <functional>
 #include <memory>
 #include <print>
@@ -10,6 +12,8 @@ namespace Osprey
 	{
 		size_t cursor = 0;
 		const size_t TokenBufferSize = tokens.size();
+
+		std::unordered_map<std::string, Type> identifier_to_type;
 
 		const auto Consume = [&]() -> std::optional<Token>
 			{
@@ -29,10 +33,10 @@ namespace Osprey
 				return std::nullopt;
 			};
 
-		std::function<std::unique_ptr<ASTNode>()> ParseFactor;
-		std::function<std::unique_ptr<ASTNode>()> ParseExpression;
+		std::function<std::unique_ptr<ASTTypedNode>()> ParseFactor;
+		std::function<std::unique_ptr<ASTTypedNode>()> ParseExpression;
 
-		ParseFactor = [&]() -> std::unique_ptr<ASTNode>
+		ParseFactor = [&]() -> std::unique_ptr<ASTTypedNode>
 			{
 				if (!Peek())
 				{
@@ -42,18 +46,31 @@ namespace Osprey
 
 				const Token token = *Consume();
 
-				if (token.type == TokenType::Integer)
+				if (token.type == TokenType::I32)
 				{
 					const int32_t Number = std::stoi(token.lexeme); // TODO: throws if fails
-					return std::make_unique<ASTIntegerLiteralNode>(Number);
+					return std::make_unique<ASTLiteralNode>(Type::I32, Number);
+				}
+				else if (token.type == TokenType::F32)
+				{
+					const float Number = std::stof(token.lexeme); // TODO: throws if fails
+					return std::make_unique<ASTLiteralNode>(Type::F32, *reinterpret_cast<const int32_t*>(&Number));
 				}
 				else if (token.type == TokenType::Identifier)
 				{
-					return std::make_unique<ASTIntegerVariableNode>(token.lexeme);
+					auto identifier_type_it = identifier_to_type.find(token.lexeme);
+
+					if (identifier_type_it == identifier_to_type.end())
+					{
+						std::println("Cannot find type for unknown identifier '{}'", token.lexeme);
+						return nullptr;
+					}
+
+					return std::make_unique<ASTVariableNode>(identifier_type_it->second, token.lexeme);
 				}
 				else if (token.type == TokenType::LeftParen)
 				{
-					std::unique_ptr<ASTNode> expression = ParseExpression();
+					std::unique_ptr<ASTTypedNode> expression = ParseExpression();
 
 					std::optional<Token> right_paren_token = Consume();
 
@@ -70,12 +87,19 @@ namespace Osprey
 				return nullptr;
 			};
 
-		ParseExpression = [&]() -> std::unique_ptr<ASTNode>
+		ParseExpression = [&]() -> std::unique_ptr<ASTTypedNode>
 			{
-				std::unique_ptr<ASTNode> factor = ParseFactor();
+				std::unique_ptr<ASTTypedNode> factor = ParseFactor();
 				if (!factor)
 				{
 					std::println("Failed to parse expression: no factor");
+					return nullptr;
+				}
+
+				const std::optional factor_type = factor->GetType();
+				if (!factor_type)
+				{
+					std::println("Failed to parse expression: cannot get type of factor");
 					return nullptr;
 				}
 
@@ -85,15 +109,35 @@ namespace Osprey
 				{
 					Consume(); // Eat the '+'
 
-					std::unique_ptr<ASTNode> expression = ParseExpression();
+					std::unique_ptr<ASTTypedNode> expression = ParseExpression();
+					if (!expression)
+					{
+						std::println("Failed to parse expression: no expression");
+						return nullptr;
+					}
 
-					factor = std::make_unique<ASTIntegerAddNode>(std::move(factor), std::move(expression));
+					const std::optional expression_type = expression->GetType();
+					if (!expression_type)
+					{
+						std::println("Failed to parse expression: cannot get type of expression");
+						return nullptr;
+					}
+
+					const bool can_add = (factor_type == Type::I32) && (expression_type == Type::I32);
+
+					if (!can_add)
+					{
+						std::println("Type-check: cannot add expressions of types '{}' and '{}'", TypeToString(*factor_type), TypeToString(*expression_type));
+						return nullptr;
+					}
+
+					factor = std::make_unique<ASTAddNode>(std::move(factor), std::move(expression));
 				}
 
 				return std::move(factor);
 			};
 
-		const auto ParseReturnStatement = [&]() -> std::unique_ptr<ASTNode>
+		const auto ParseReturnStatement = [&]() -> std::unique_ptr<ASTReturnNode>
 			{
 				const std::optional<Token> return_token = Consume();
 
@@ -103,7 +147,12 @@ namespace Osprey
 					return nullptr;
 				}
 
-				std::unique_ptr<ASTNode> expression = ParseExpression();
+				std::unique_ptr<ASTTypedNode> expression = ParseExpression();
+				if (!expression)
+				{
+					std::println("Failed to parse return statement: no expression");
+					return nullptr;
+				}
 
 				const std::optional<Token> semicolon_token = Consume();
 				if (!semicolon_token || semicolon_token->type != TokenType::Semicolon)
@@ -115,7 +164,29 @@ namespace Osprey
 				return std::make_unique<ASTReturnNode>(std::move(expression));
 			};
 
-		const auto ParseAssignmentStatement = [&]() -> std::unique_ptr<ASTNode>
+		const auto ParseType = [&]() -> std::optional<Type>
+			{
+				const std::optional<Token> type_token = Consume();
+				if (!type_token)
+				{
+					std::println("Failed to parse type: expected type");
+					return std::nullopt;
+				}
+
+				if (type_token->type == TokenType::I32)
+				{
+					return Type::I32;
+				}
+				if (type_token->type == TokenType::F32)
+				{
+					return Type::F32;
+				}
+
+				std::println("Failed to parse type: unexpected '{}'", type_token->lexeme);
+				return std::nullopt;
+			};
+
+		const auto ParseVariableDeclarationStatement = [&]() -> std::unique_ptr<ASTVariableDeclarationNode>
 			{
 				const std::optional<Token> identifier_token = Consume();
 
@@ -125,6 +196,29 @@ namespace Osprey
 					return nullptr;
 				}
 
+				if (identifier_to_type.contains(identifier_token->lexeme))
+				{
+					std::println("Failed to parse assignment statement: identifier '{}' already exists", identifier_token->lexeme);
+					return nullptr;
+				}
+
+				const std::optional<Token> colon_token = Consume();
+
+				if (!colon_token || colon_token->type != TokenType::Colon)
+				{
+					std::println("Failed to parse assignment statement: expected ':'");
+					return nullptr;
+				}
+
+				std::optional<Type> type = ParseType();
+				if (!type)
+				{
+					std::println("Failed to parse assignment statement: expected type");
+					return nullptr;
+				}
+
+				identifier_to_type.insert({ identifier_token->lexeme, *type });
+
 				const std::optional<Token> assignment_token = Consume();
 
 				if (!assignment_token || assignment_token->type != TokenType::Assign)
@@ -133,7 +227,26 @@ namespace Osprey
 					return nullptr;
 				}
 
-				std::unique_ptr<ASTNode> expression = ParseExpression();
+				std::unique_ptr<ASTTypedNode> expression = ParseExpression();
+				if (!expression)
+				{
+					std::println("Failed to parse assignment statement: no expression");
+					return nullptr;
+				}
+
+				const std::optional<Type> expression_type = expression->GetType();
+
+				if (!expression_type)
+				{
+					std::println("Type-check failed: Failed to get type of expression");
+					return nullptr;
+				}
+
+				if (expression_type != type)
+				{
+					std::println("Type-check failed: Trying to assign a {} expression to a {} variable", TypeToString(*expression_type), TypeToString(*type));
+					return nullptr;
+				}
 
 				const std::optional<Token> semicolon_token = Consume();
 
@@ -143,7 +256,7 @@ namespace Osprey
 					return nullptr;
 				}
 
-				return std::make_unique<ASTIntegerVariableAssignNode>(identifier_token->lexeme, std::move(expression));
+				return std::make_unique<ASTVariableDeclarationNode>(identifier_token->lexeme, *type, std::move(expression));
 			};
 
 		const auto ParseStatement = [&]() -> std::unique_ptr<ASTNode>
@@ -162,7 +275,7 @@ namespace Osprey
 				}
 				else if (next_token->type == TokenType::Identifier)
 				{
-					return ParseAssignmentStatement();
+					return ParseVariableDeclarationStatement();
 				}
 
 				std::println("Failed to parse statement: unexpected token");

@@ -141,6 +141,7 @@
     <ClInclude Include="Parser.h" />
     <ClInclude Include="Token.h" />
     <ClInclude Include="Tokeniser.h" />
+    <ClInclude Include="Types.h" />
     <ClInclude Include="VMOpCode.h" />
     <ClInclude Include="VMCompiler.h" />
     <ClInclude Include="VMProgram.h" />

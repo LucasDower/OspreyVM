@@ -10,11 +10,13 @@ namespace Osprey
 		Assign,
 		Plus,
 		Return,
-		Integer,
 		Equality,
 		Semicolon,
+		Colon,
 		LeftParen,
 		RightParen,
+		I32,
+		F32,
 	};
 
 	struct Token

@@ -1,9 +1,12 @@
 #pragma once
 
+#include "Types.h"
+
 #include <cstdint>
 #include <string>
 #include <memory>
 #include <vector>
+#include <optional>
 
 namespace Osprey
 {
@@ -18,83 +21,101 @@ namespace Osprey
 		virtual ASTVisitorTraversal Accept(ASTVisitor& visitor) const = 0;
 	};
 
-	class ASTIntegerLiteralNode : public ASTNode
+	class ASTTypedNode : public ASTNode
 	{
 	public:
-		ASTIntegerLiteralNode(int32_t value);
-		virtual ~ASTIntegerLiteralNode() = default;
+		virtual std::optional<Type> GetType() const = 0;
+	};
+
+	class ASTLiteralNode : public ASTTypedNode
+	{
+	public:
+		ASTLiteralNode(Type type, int32_t value);
+		virtual ~ASTLiteralNode() = default;
 
 		// ASTNode
 		virtual ASTVisitorTraversal Accept(ASTVisitor& visitor) const override;
+
+		// ASTTypedNode
+		virtual std::optional<Type> GetType() const override { return m_type; }
 
 		int32_t GetValue() const;
 
 	private:
+		Type m_type;
 		int32_t m_value;
 	};
 
-	class ASTIntegerVariableNode : public ASTNode
+	class ASTVariableNode : public ASTTypedNode
 	{
 	public:
-		ASTIntegerVariableNode(std::string identifier);
-		virtual ~ASTIntegerVariableNode() = default;
+		ASTVariableNode(Type type, std::string identifier);
+		virtual ~ASTVariableNode() = default;
+
+		// ASTNode
+		virtual ASTVisitorTraversal Accept(ASTVisitor& visitor) const override;
+
+		// ASTTypedNode
+		virtual std::optional<Type> GetType() const override;
+
+		const std::string& GetIdentifier() const;
+
+	private:
+		Type m_type;
+		std::string m_identifier;
+	};
+
+	class ASTAddNode : public ASTTypedNode
+	{
+	public:
+		ASTAddNode(std::unique_ptr<ASTTypedNode> left, std::unique_ptr<ASTTypedNode> right);
+		virtual ~ASTAddNode() = default;
+
+		// ASTNode
+		virtual ASTVisitorTraversal Accept(ASTVisitor& visitor) const override;
+
+		// ASTTypedNode
+		virtual std::optional<Type> GetType() const override;
+
+		const std::unique_ptr<ASTTypedNode>& GetLeftNode() const;
+		const std::unique_ptr<ASTTypedNode>& GetRightNode() const;
+
+	private:
+		std::unique_ptr<ASTTypedNode> m_left_node;
+		std::unique_ptr<ASTTypedNode> m_right_node;
+	};
+
+	class ASTVariableDeclarationNode : public ASTNode
+	{
+	public:
+		ASTVariableDeclarationNode(std::string identifier, Type type, std::unique_ptr<ASTTypedNode> expression);
+		virtual ~ASTVariableDeclarationNode() = default;
 
 		// ASTNode
 		virtual ASTVisitorTraversal Accept(ASTVisitor& visitor) const override;
 
 		const std::string& GetIdentifier() const;
+		const std::unique_ptr<ASTTypedNode>& GetExpressionNode() const;
 
 	private:
 		std::string m_identifier;
-	};
-
-	class ASTIntegerAddNode : public ASTNode
-	{
-	public:
-		ASTIntegerAddNode(std::unique_ptr<ASTNode> left, std::unique_ptr<ASTNode> right);
-		virtual ~ASTIntegerAddNode() = default;
-
-		// ASTNode
-		virtual ASTVisitorTraversal Accept(ASTVisitor& visitor) const override;
-
-		const std::unique_ptr<ASTNode>& GetLeftNode() const;
-		const std::unique_ptr<ASTNode>& GetRightNode() const;
-
-	private:
-		std::unique_ptr<ASTNode> m_left_node;
-		std::unique_ptr<ASTNode> m_right_node;
-	};
-
-	class ASTIntegerVariableAssignNode : public ASTNode
-	{
-	public:
-		ASTIntegerVariableAssignNode(std::string identifier, std::unique_ptr<ASTNode> expression);
-		virtual ~ASTIntegerVariableAssignNode() = default;
-
-		// ASTNode
-		virtual ASTVisitorTraversal Accept(ASTVisitor& visitor) const override;
-
-		const std::string& GetIdentifier() const;
-		const std::unique_ptr<ASTNode>& GetExpressionNode() const;
-
-	private:
-		std::string m_identifier;
-		std::unique_ptr<ASTNode> m_expression_node;
+		Type m_type;
+		std::unique_ptr<ASTTypedNode> m_expression_node;
 	};
 
 	class ASTReturnNode : public ASTNode
 	{
 	public:
-		ASTReturnNode(std::unique_ptr<ASTNode> expression);
+		ASTReturnNode(std::unique_ptr<ASTTypedNode> expression);
 		virtual ~ASTReturnNode() = default;
 
 		// ASTNode
 		virtual ASTVisitorTraversal Accept(ASTVisitor& visitor) const override;
 
-		const std::unique_ptr<ASTNode>& GetExpressionNode() const;
+		const std::unique_ptr<ASTTypedNode>& GetExpressionNode() const;
 
 	private:
-		std::unique_ptr<ASTNode> m_expression_node;
+		std::unique_ptr<ASTTypedNode> m_expression_node;
 	};
 
 	class ASTBlockNode : public ASTNode

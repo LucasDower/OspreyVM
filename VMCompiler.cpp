@@ -61,7 +61,7 @@ namespace Osprey
 		}
 
 	private:
-		ASTVisitorTraversal Visit(const ASTIntegerLiteralNode& node)
+		ASTVisitorTraversal Visit(const ASTLiteralNode& node)
 		{
 			m_context.EmitOpCode(VMOpCode::PUSH);
 			m_context.EmitOperand(node.GetValue());
@@ -69,7 +69,7 @@ namespace Osprey
 			return ASTVisitorTraversal::Continue;
 		}
 
-		ASTVisitorTraversal Visit(const ASTIntegerVariableNode& node)
+		ASTVisitorTraversal Visit(const ASTVariableNode& node)
 		{
 			const std::optional<int32_t> address = m_context.GetIdentifierAddress(node.GetIdentifier());
 			if (!address)
@@ -84,7 +84,7 @@ namespace Osprey
 			return ASTVisitorTraversal::Continue;
 		}
 
-		ASTVisitorTraversal Visit(const ASTIntegerAddNode& node)
+		ASTVisitorTraversal Visit(const ASTAddNode& node)
 		{
 			if (node.GetLeftNode()->Accept(*this) == ASTVisitorTraversal::Stop)
 			{
@@ -101,7 +101,7 @@ namespace Osprey
 			return ASTVisitorTraversal::Continue;
 		}
 
-		ASTVisitorTraversal Visit(const ASTIntegerVariableAssignNode& node)
+		ASTVisitorTraversal Visit(const ASTVariableDeclarationNode& node)
 		{
 			int32_t address = m_context.GetOrAddIdentifierAddress(node.GetIdentifier());
 

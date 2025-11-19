@@ -2,91 +2,126 @@
 
 #include "ASTVisitor.h"
 
+#include <print>
+
 namespace Osprey
 {
 	// ASTIntegerLiteralNode
 
-	ASTIntegerLiteralNode::ASTIntegerLiteralNode(int32_t value)
-		: m_value(value)
+	ASTLiteralNode::ASTLiteralNode(Type type, int32_t value)
+		: m_type(type)
+		, m_value(value)
 	{
 	}
 
-	ASTVisitorTraversal ASTIntegerLiteralNode::Accept(ASTVisitor& visitor) const
+	ASTVisitorTraversal ASTLiteralNode::Accept(ASTVisitor& visitor) const
 	{
 		return visitor.Visit(*this);
 	}
 
-	int32_t ASTIntegerLiteralNode::GetValue() const
+	int32_t ASTLiteralNode::GetValue() const
 	{
 		return m_value;
 	}
 
 	// ASTIntegerVariableNode
 
-	ASTIntegerVariableNode::ASTIntegerVariableNode(std::string identifier)
-		: m_identifier(std::move(identifier))
+	ASTVariableNode::ASTVariableNode(Type type, std::string identifier)
+		: m_type(type)
+		, m_identifier(std::move(identifier))
 	{
 	}
 
-	ASTVisitorTraversal ASTIntegerVariableNode::Accept(ASTVisitor& visitor) const
+	ASTVisitorTraversal ASTVariableNode::Accept(ASTVisitor& visitor) const
 	{
 		return visitor.Visit(*this);
 	}
 
-	const std::string& ASTIntegerVariableNode::GetIdentifier() const
+	std::optional<Type> ASTVariableNode::GetType() const
+	{
+		return m_type;
+	}
+
+	const std::string& ASTVariableNode::GetIdentifier() const
 	{
 		return m_identifier;
 	}
 
-	// ASTIntegerAddNode
+	// ASTAddNode
 
-	ASTIntegerAddNode::ASTIntegerAddNode(std::unique_ptr<ASTNode> left, std::unique_ptr<ASTNode> right)
+	ASTAddNode::ASTAddNode(std::unique_ptr<ASTTypedNode> left, std::unique_ptr<ASTTypedNode> right)
 		: m_left_node(std::move(left))
 		, m_right_node(std::move(right))
 	{
 	}
 
-	ASTVisitorTraversal ASTIntegerAddNode::Accept(ASTVisitor& visitor) const
+	ASTVisitorTraversal ASTAddNode::Accept(ASTVisitor& visitor) const
 	{
 		return visitor.Visit(*this);
 	}
 
-	const std::unique_ptr<ASTNode>& ASTIntegerAddNode::GetLeftNode() const
+	std::optional<Type> ASTAddNode::GetType() const
+	{
+		const std::optional<Type> left_type = m_left_node->GetType();
+		if (!left_type)
+		{
+			std::println("Failed to get type of left node in add expression");
+			return std::nullopt;
+		}
+
+		const std::optional<Type> right_type = m_right_node->GetType();
+		if (!right_type)
+		{
+			std::println("Failed to get type of right node in add expression");
+			return std::nullopt;
+		}
+
+		if (*left_type == Type::I32 && right_type == Type::I32)
+		{
+			return Type::I32;
+		}
+
+		std::println("Types '{}' and '{}' cannot be added", TypeToString(*left_type), TypeToString(*right_type));
+		return std::nullopt;
+	}
+
+	const std::unique_ptr<ASTTypedNode>& ASTAddNode::GetLeftNode() const
 	{
 		return m_left_node;
 	}
 
-	const std::unique_ptr<ASTNode>& ASTIntegerAddNode::GetRightNode() const
+	const std::unique_ptr<ASTTypedNode>& ASTAddNode::GetRightNode() const
 	{
 		return m_right_node;
 	}
 
-	// ASTIntegerVariableAssignNode
+	// ASTAssignNode
 
-	ASTIntegerVariableAssignNode::ASTIntegerVariableAssignNode(std::string identifier, std::unique_ptr<ASTNode> expression)
+	ASTVariableDeclarationNode::ASTVariableDeclarationNode(std::string identifier, Type type, std::unique_ptr<ASTTypedNode> expression)
 		: m_identifier(std::move(identifier))
+		, m_type(type)
 		, m_expression_node(std::move(expression))
 	{
 	}
 
-	ASTVisitorTraversal ASTIntegerVariableAssignNode::Accept(ASTVisitor& visitor) const
+	ASTVisitorTraversal ASTVariableDeclarationNode::Accept(ASTVisitor& visitor) const
 	{
 		return visitor.Visit(*this);
 	}
 
-	const std::string& ASTIntegerVariableAssignNode::GetIdentifier() const
+	const std::string& ASTVariableDeclarationNode::GetIdentifier() const
 	{
 		return m_identifier;
 	}
 
-	const std::unique_ptr<ASTNode>& ASTIntegerVariableAssignNode::GetExpressionNode() const
+	const std::unique_ptr<ASTTypedNode>& ASTVariableDeclarationNode::GetExpressionNode() const
 	{
 		return m_expression_node;
 	}
 
 	// ASTReturnNode
 
-	ASTReturnNode::ASTReturnNode(std::unique_ptr<ASTNode> expression)
+	ASTReturnNode::ASTReturnNode(std::unique_ptr<ASTTypedNode> expression)
 		: m_expression_node(std::move(expression))
 	{
 	}
@@ -96,7 +131,7 @@ namespace Osprey
 		return visitor.Visit(*this);
 	}
 
-	const std::unique_ptr<ASTNode>& ASTReturnNode::GetExpressionNode() const
+	const std::unique_ptr<ASTTypedNode>& ASTReturnNode::GetExpressionNode() const
 	{
 		return m_expression_node;
 	}

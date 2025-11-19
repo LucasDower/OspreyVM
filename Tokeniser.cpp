@@ -45,6 +45,11 @@ namespace Osprey
 					column = 0;
 					break;
 				}
+				case ':':
+				{
+					tokens.push_back(MakeToken(TokenType::Colon, ":"));
+					break;
+				}
 				case ';':
 				{
 					tokens.push_back(MakeToken(TokenType::Semicolon, ";"));
@@ -86,20 +91,27 @@ namespace Osprey
 
 						std::string number_string(1, static_cast<char>(curr_char));
 
-						while (Peek() && std::isdigit(*Peek()))
+						// TODO: use regex instead, as '0.0.0f' is passes as a valid float
+						while (Peek() && (std::isdigit(*Peek()) || *Peek() == '.'))
 						{
 							number_string += static_cast<unsigned char>(Consume());
 						}
 
-						tokens.push_back(MakeToken(TokenType::Integer, number_string));
+						if (Peek() && *Peek() == 'f')
+						{
+							Consume(); // eat the 'f'
+							tokens.push_back(MakeToken(TokenType::F32, number_string));
+						}
+						else
+						{
+							tokens.push_back(MakeToken(TokenType::I32, number_string));
+						}
 					}
 					else if (std::isalpha(curr_char))
 					{
-						// Identifiers cannot have numbers in them!
-
 						std::string identifier_or_keyword(1, static_cast<char>(curr_char));
 
-						while (Peek() && std::isalpha(*Peek()))
+						while (Peek() && (std::isalpha(*Peek()) || std::isdigit(*Peek())))
 						{
 							identifier_or_keyword += static_cast<unsigned char>(Consume());
 						}
@@ -107,6 +119,14 @@ namespace Osprey
 						if (identifier_or_keyword == "return")
 						{
 							tokens.push_back(MakeToken(TokenType::Return, "return"));
+						}
+						else if (identifier_or_keyword == "i32")
+						{
+							tokens.push_back(MakeToken(TokenType::I32, "i32"));
+						}
+						else if (identifier_or_keyword == "f32")
+						{
+							tokens.push_back(MakeToken(TokenType::F32, "f32"));
 						}
 						else
 						{
