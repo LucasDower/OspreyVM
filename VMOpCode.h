@@ -8,6 +8,7 @@ namespace Osprey
 	{
 		PUSH,
 		ADD,
+		MUL,
 		LOAD,
 		STORE,
 		LT,

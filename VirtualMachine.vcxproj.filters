@@ -80,5 +80,8 @@
     <ClInclude Include="Types.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="BinaryOperator.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

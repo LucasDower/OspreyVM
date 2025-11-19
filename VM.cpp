@@ -56,6 +56,13 @@ namespace Osprey
 					m_stack.Push(left + right);
 					break;
 				}
+				case VMOpCode::MUL:
+				{
+					const int32_t left = m_stack.Pop();
+					const int32_t right = m_stack.Pop();
+					m_stack.Push(left * right);
+					break;
+				}
 				case VMOpCode::STORE:
 				{
 					int32_t address = m_program.GetInstruction(m_instruction_offset++);

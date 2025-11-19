@@ -10,7 +10,7 @@ int main()
 	const std::string script =
 		"x: i32 = 3;\n"
 		"y: i32 = 4;\n"
-		"return x + y + 1.0f;";
+		"return (x + y) * 2;";
 
 	std::optional<Osprey::TokenBuffer> tokens = Osprey::Tokenise(script);
 	if (!tokens)

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Types.h"
+#include "BinaryOperator.h"
 
 #include <cstdint>
 #include <string>
@@ -65,11 +66,11 @@ namespace Osprey
 		std::string m_identifier;
 	};
 
-	class ASTAddNode : public ASTTypedNode
+	class ASTBinaryOperatorNode : public ASTTypedNode
 	{
 	public:
-		ASTAddNode(std::unique_ptr<ASTTypedNode> left, std::unique_ptr<ASTTypedNode> right);
-		virtual ~ASTAddNode() = default;
+		ASTBinaryOperatorNode(BinaryOperator op, std::unique_ptr<ASTTypedNode> left, std::unique_ptr<ASTTypedNode> right);
+		virtual ~ASTBinaryOperatorNode() = default;
 
 		// ASTNode
 		virtual ASTVisitorTraversal Accept(ASTVisitor& visitor) const override;
@@ -77,10 +78,12 @@ namespace Osprey
 		// ASTTypedNode
 		virtual std::optional<Type> GetType() const override;
 
+		BinaryOperator GetOperator() const;
 		const std::unique_ptr<ASTTypedNode>& GetLeftNode() const;
 		const std::unique_ptr<ASTTypedNode>& GetRightNode() const;
 
 	private:
+		BinaryOperator m_op;
 		std::unique_ptr<ASTTypedNode> m_left_node;
 		std::unique_ptr<ASTTypedNode> m_right_node;
 	};

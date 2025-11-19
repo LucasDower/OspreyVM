@@ -1,6 +1,7 @@
 #include "Parser.h"
 
 #include "Types.h"
+#include "BinaryOperator.h"
 
 #include <functional>
 #include <memory>
@@ -34,6 +35,7 @@ namespace Osprey
 			};
 
 		std::function<std::unique_ptr<ASTTypedNode>()> ParseFactor;
+		std::function<std::unique_ptr<ASTTypedNode>()> ParseTerm;
 		std::function<std::unique_ptr<ASTTypedNode>()> ParseExpression;
 
 		ParseFactor = [&]() -> std::unique_ptr<ASTTypedNode>
@@ -87,19 +89,67 @@ namespace Osprey
 				return nullptr;
 			};
 
-		ParseExpression = [&]() -> std::unique_ptr<ASTTypedNode>
+		ParseTerm = [&]() -> std::unique_ptr<ASTTypedNode>
 			{
-				std::unique_ptr<ASTTypedNode> factor = ParseFactor();
-				if (!factor)
+				std::unique_ptr<ASTTypedNode> factor_node = ParseFactor();
+				if (!factor_node)
 				{
-					std::println("Failed to parse expression: no factor");
+					std::println("Failed to parse term: no factor");
 					return nullptr;
 				}
 
-				const std::optional factor_type = factor->GetType();
+				const std::optional factor_type = factor_node->GetType();
 				if (!factor_type)
 				{
-					std::println("Failed to parse expression: cannot get type of factor");
+					std::println("Failed to parse term: cannot get type of factor");
+					return nullptr;
+				}
+
+				const std::optional<Token> operator_token = Peek();
+				if (operator_token && operator_token->type == TokenType::Asterisk)
+				{
+					Consume(); // eat the '*'
+
+					std::unique_ptr<ASTTypedNode> next_factor_node = ParseFactor();
+					if (!next_factor_node)
+					{
+						std::println("Failed to parse term: no following factor");
+						return nullptr;
+					}
+
+					const std::optional next_factor_type = next_factor_node->GetType();
+					if (!next_factor_type)
+					{
+						std::println("Failed to parse term: cannot get type of followed factor");
+						return nullptr;
+					}
+
+					const bool can_multiply = (*factor_type == Type::I32) && (*next_factor_type == Type::I32);
+					if (!can_multiply)
+					{
+						std::println("Type-check: cannot multiply expressions of types '{}' and '{}'", TypeToString(*factor_type), TypeToString(*next_factor_type));
+						return nullptr;
+					}
+
+					return std::make_unique<ASTBinaryOperatorNode>(BinaryOperator::Asterisk, std::move(factor_node), std::move(next_factor_node));
+				}
+
+				return factor_node;
+			};
+
+		ParseExpression = [&]() -> std::unique_ptr<ASTTypedNode>
+			{
+				std::unique_ptr<ASTTypedNode> term = ParseTerm();
+				if (!term)
+				{
+					std::println("Failed to parse expression: no term");
+					return nullptr;
+				}
+
+				const std::optional term_type = term->GetType();
+				if (!term_type)
+				{
+					std::println("Failed to parse expression: cannot get type of term");
 					return nullptr;
 				}
 
@@ -123,18 +173,18 @@ namespace Osprey
 						return nullptr;
 					}
 
-					const bool can_add = (factor_type == Type::I32) && (expression_type == Type::I32);
+					const bool can_add = (term_type == Type::I32) && (expression_type == Type::I32);
 
 					if (!can_add)
 					{
-						std::println("Type-check: cannot add expressions of types '{}' and '{}'", TypeToString(*factor_type), TypeToString(*expression_type));
+						std::println("Type-check: cannot add expressions of types '{}' and '{}'", TypeToString(*term_type), TypeToString(*expression_type));
 						return nullptr;
 					}
 
-					factor = std::make_unique<ASTAddNode>(std::move(factor), std::move(expression));
+					return std::make_unique<ASTBinaryOperatorNode>(BinaryOperator::Plus, std::move(term), std::move(expression));
 				}
 
-				return std::move(factor);
+				return std::move(term);
 			};
 
 		const auto ParseReturnStatement = [&]() -> std::unique_ptr<ASTReturnNode>

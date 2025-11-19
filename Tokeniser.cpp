@@ -70,6 +70,11 @@ namespace Osprey
 					tokens.push_back(MakeToken(TokenType::Plus, "+"));
 					break;
 				}
+				case '*':
+				{
+					tokens.push_back(MakeToken(TokenType::Asterisk, "*"));
+					break;
+				}
 				case '=':
 				{
 					if (Peek() && *Peek() == '=')

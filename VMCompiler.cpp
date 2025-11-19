@@ -78,13 +78,19 @@ namespace Osprey
 				return ASTVisitorTraversal::Stop;
 			}
 
+			if (node.GetType() != Type::I32)
+			{
+				std::println("VM only supports i32");
+				return ASTVisitorTraversal::Stop;
+			}
+
 			m_context.EmitOpCode(VMOpCode::LOAD);
 			m_context.EmitOperand(*address);
 
 			return ASTVisitorTraversal::Continue;
 		}
 
-		ASTVisitorTraversal Visit(const ASTAddNode& node)
+		ASTVisitorTraversal Visit(const ASTBinaryOperatorNode& node)
 		{
 			if (node.GetLeftNode()->Accept(*this) == ASTVisitorTraversal::Stop)
 			{
@@ -96,7 +102,25 @@ namespace Osprey
 				return ASTVisitorTraversal::Stop;
 			}
 
-			m_context.EmitOpCode(VMOpCode::ADD);
+			if (node.GetType() != Type::I32)
+			{
+				std::println("VM only supports i32");
+				return ASTVisitorTraversal::Stop;
+			}
+
+			if (node.GetOperator() == BinaryOperator::Plus)
+			{
+				m_context.EmitOpCode(VMOpCode::ADD);
+			}
+			else if (node.GetOperator() == BinaryOperator::Asterisk)
+			{
+				m_context.EmitOpCode(VMOpCode::MUL);
+			}
+			else
+			{
+				std::println("Unknown operator");
+				return ASTVisitorTraversal::Stop;
+			}
 
 			return ASTVisitorTraversal::Continue;
 		}

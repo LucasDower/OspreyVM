@@ -138,6 +138,7 @@
   <ItemGroup>
     <ClInclude Include="AST.h" />
     <ClInclude Include="ASTVisitor.h" />
+    <ClInclude Include="BinaryOperator.h" />
     <ClInclude Include="Parser.h" />
     <ClInclude Include="Token.h" />
     <ClInclude Include="Tokeniser.h" />

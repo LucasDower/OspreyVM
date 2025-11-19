@@ -49,53 +49,41 @@ namespace Osprey
 
 	// ASTAddNode
 
-	ASTAddNode::ASTAddNode(std::unique_ptr<ASTTypedNode> left, std::unique_ptr<ASTTypedNode> right)
-		: m_left_node(std::move(left))
+	ASTBinaryOperatorNode::ASTBinaryOperatorNode(BinaryOperator op, std::unique_ptr<ASTTypedNode> left, std::unique_ptr<ASTTypedNode> right)
+		: m_op(op)
+		, m_left_node(std::move(left))
 		, m_right_node(std::move(right))
 	{
 	}
 
-	ASTVisitorTraversal ASTAddNode::Accept(ASTVisitor& visitor) const
+	ASTVisitorTraversal ASTBinaryOperatorNode::Accept(ASTVisitor& visitor) const
 	{
 		return visitor.Visit(*this);
 	}
 
-	std::optional<Type> ASTAddNode::GetType() const
+	std::optional<Type> ASTBinaryOperatorNode::GetType() const
 	{
-		const std::optional<Type> left_type = m_left_node->GetType();
-		if (!left_type)
-		{
-			std::println("Failed to get type of left node in add expression");
-			return std::nullopt;
-		}
-
-		const std::optional<Type> right_type = m_right_node->GetType();
-		if (!right_type)
-		{
-			std::println("Failed to get type of right node in add expression");
-			return std::nullopt;
-		}
-
-		if (*left_type == Type::I32 && right_type == Type::I32)
-		{
-			return Type::I32;
-		}
-
-		std::println("Types '{}' and '{}' cannot be added", TypeToString(*left_type), TypeToString(*right_type));
-		return std::nullopt;
+		return m_left_node->GetType();
+		// Already type checked so we know the right node is the same type
+		// TODO: though we should enforce that as a class invariant and cache the type
 	}
 
-	const std::unique_ptr<ASTTypedNode>& ASTAddNode::GetLeftNode() const
+	BinaryOperator ASTBinaryOperatorNode::GetOperator() const
+	{
+		return m_op;
+	}
+
+	const std::unique_ptr<ASTTypedNode>& ASTBinaryOperatorNode::GetLeftNode() const
 	{
 		return m_left_node;
 	}
 
-	const std::unique_ptr<ASTTypedNode>& ASTAddNode::GetRightNode() const
+	const std::unique_ptr<ASTTypedNode>& ASTBinaryOperatorNode::GetRightNode() const
 	{
 		return m_right_node;
 	}
 
-	// ASTAssignNode
+	// ASTVariableDeclarationNode
 
 	ASTVariableDeclarationNode::ASTVariableDeclarationNode(std::string identifier, Type type, std::unique_ptr<ASTTypedNode> expression)
 		: m_identifier(std::move(identifier))

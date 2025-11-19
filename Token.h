@@ -9,6 +9,7 @@ namespace Osprey
 		Identifier,
 		Assign,
 		Plus,
+		Asterisk,
 		Return,
 		Equality,
 		Semicolon,
