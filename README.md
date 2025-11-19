@@ -7,9 +7,9 @@ This repro explores a custom toy scripting language, *Osprey*, and its associate
 
 The following is an example script written in *Osprey*.
 ```
-x = 3;
-y = 4;
-return x + y + 1;
+x: i32 = 3;
+y: i32 = 4;
+return (x + y) * 2;
 ```
 
 This repro includes a lexer and parser for *Osprey* into an AST. This AST is then converted into *OspreyVM* bytecode.
@@ -18,9 +18,9 @@ This repro includes a lexer and parser for *Osprey* into an AST. This AST is the
 int main()
 {
 	const std::string script =
-		"x = 3;\n"
-		"y = 4;\n"
-		"return x + y + 1;";
+		"x: i32 = 3;\n"
+		"y: i32 = 4;\n"
+		"return (x + y) * 2;";
 
 	std::optional<Osprey::TokenBuffer> tokens = Osprey::Tokenise(script);
 	if (!tokens)
