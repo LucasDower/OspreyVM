@@ -11,11 +11,14 @@ namespace Osprey
 	class ASTVisitor
 	{
 	public:
-		virtual ASTVisitorTraversal Visit(const class ASTLiteralNode& Node) = 0;
-		virtual ASTVisitorTraversal Visit(const class ASTVariableNode& Node) = 0;
-		virtual ASTVisitorTraversal Visit(const class ASTBinaryOperatorNode& Node) = 0;
-		virtual ASTVisitorTraversal Visit(const class ASTVariableDeclarationNode& Node) = 0;
-		virtual ASTVisitorTraversal Visit(const class ASTReturnNode& Node) = 0;
-		virtual ASTVisitorTraversal Visit(const class ASTBlockNode& Node) = 0;
+		virtual ASTVisitorTraversal Visit(const class ASTLiteral& Node) = 0;
+		virtual ASTVisitorTraversal Visit(const class ASTVariable& Node) = 0;
+		virtual ASTVisitorTraversal Visit(const class ASTUnaryExpr& Node) = 0;
+		virtual ASTVisitorTraversal Visit(const class ASTBinaryExpr& Node) = 0;
+		virtual ASTVisitorTraversal Visit(const class ASTVariableDeclarationStmt& Node) = 0;
+		virtual ASTVisitorTraversal Visit(const class ASTReturn& Node) = 0;
+		virtual ASTVisitorTraversal Visit(const class ASTBlock& Node) = 0;
+		virtual ASTVisitorTraversal Visit(const class ASTAssignmentStmt& Node) = 0;
+		virtual ASTVisitorTraversal Visit(const class ASTIfStmt& Node) = 0;
 	};
 }

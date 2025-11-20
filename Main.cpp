@@ -4,13 +4,20 @@
 #include "VM.h"
 
 #include <string>
+#include <fstream>
+#include <sstream>
 
 int main()
 {
-	const std::string script =
-		"x: i32 = 3;\n"
-		"y: i32 = 4;\n"
-		"return (x + y) * 2;";
+	std::ifstream file("Script.osp");
+	if (!file)
+	{
+		return 1;
+	}
+
+	std::ostringstream ss;
+	ss << file.rdbuf();
+	const std::string script = ss.str();
 
 	std::optional<Osprey::TokenBuffer> tokens = Osprey::Tokenise(script);
 	if (!tokens)

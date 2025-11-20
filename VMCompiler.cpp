@@ -8,6 +8,7 @@
 #include <vector>
 #include <unordered_map>
 #include <print>
+#include <cassert>
 
 namespace Osprey
 {
@@ -61,7 +62,7 @@ namespace Osprey
 		}
 
 	private:
-		ASTVisitorTraversal Visit(const ASTLiteralNode& node)
+		ASTVisitorTraversal Visit(const ASTLiteral& node)
 		{
 			m_context.EmitOpCode(VMOpCode::PUSH);
 			m_context.EmitOperand(node.GetValue());
@@ -69,7 +70,7 @@ namespace Osprey
 			return ASTVisitorTraversal::Continue;
 		}
 
-		ASTVisitorTraversal Visit(const ASTVariableNode& node)
+		ASTVisitorTraversal Visit(const ASTVariable& node)
 		{
 			const std::optional<int32_t> address = m_context.GetIdentifierAddress(node.GetIdentifier());
 			if (!address)
@@ -90,7 +91,32 @@ namespace Osprey
 			return ASTVisitorTraversal::Continue;
 		}
 
-		ASTVisitorTraversal Visit(const ASTBinaryOperatorNode& node)
+		ASTVisitorTraversal Visit(const ASTUnaryExpr& node)
+		{
+			if (node.GetNode()->Accept(*this) == ASTVisitorTraversal::Stop)
+			{
+				return ASTVisitorTraversal::Stop;
+			}
+
+			switch (node.GetOperator())
+			{
+				case UnaryOperator::Exclamation:
+				{
+					m_context.EmitOpCode(VMOpCode::NOT);
+					break;
+				}
+				case UnaryOperator::Minus:
+				{
+					m_context.EmitOpCode(VMOpCode::NEGATE);
+					break;
+				}
+			}
+
+			std::println("Unknown unary operator");
+			return ASTVisitorTraversal::Stop;
+		}
+		
+		ASTVisitorTraversal Visit(const ASTBinaryExpr& node)
 		{
 			if (node.GetLeftNode()->Accept(*this) == ASTVisitorTraversal::Stop)
 			{
@@ -125,7 +151,7 @@ namespace Osprey
 			return ASTVisitorTraversal::Continue;
 		}
 
-		ASTVisitorTraversal Visit(const ASTVariableDeclarationNode& node)
+		ASTVisitorTraversal Visit(const ASTVariableDeclarationStmt& node)
 		{
 			int32_t address = m_context.GetOrAddIdentifierAddress(node.GetIdentifier());
 
@@ -140,7 +166,7 @@ namespace Osprey
 			return ASTVisitorTraversal::Continue;
 		}
 
-		ASTVisitorTraversal Visit(const ASTReturnNode& node)
+		ASTVisitorTraversal Visit(const ASTReturn& node)
 		{
 			if (node.GetExpressionNode()->Accept(*this) == ASTVisitorTraversal::Stop)
 			{
@@ -152,7 +178,7 @@ namespace Osprey
 			return ASTVisitorTraversal::Continue;
 		}
 
-		ASTVisitorTraversal Visit(const ASTBlockNode& node)
+		ASTVisitorTraversal Visit(const ASTBlock& node)
 		{
 			for (const std::unique_ptr<ASTNode>& expression_node : node.GetExpressionNodes())
 			{
@@ -163,6 +189,28 @@ namespace Osprey
 			}
 
 			return ASTVisitorTraversal::Continue;
+		}
+
+		ASTVisitorTraversal Visit(const ASTAssignmentStmt& node)
+		{
+			std::optional<int32_t> address = m_context.GetIdentifierAddress(node.GetIdentifier());
+			assert(address);
+
+			if (node.GetExpressionNode()->Accept(*this) == ASTVisitorTraversal::Stop)
+			{
+				return ASTVisitorTraversal::Stop;
+			}
+
+			m_context.EmitOpCode(VMOpCode::STORE);
+			m_context.EmitOperand(*address);
+
+			return ASTVisitorTraversal::Continue;
+		}
+
+		ASTVisitorTraversal Visit(const ASTIfStmt& node)
+		{
+			std::println("If-statements not supported by VM");
+			return ASTVisitorTraversal::Stop;
 		}
 
 	private:

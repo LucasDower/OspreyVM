@@ -8,6 +8,7 @@ namespace Osprey
 {
 	enum class Type
 	{
+		Bool,
 		I32,
 		F32
 	};

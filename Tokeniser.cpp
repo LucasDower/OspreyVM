@@ -65,6 +65,16 @@ namespace Osprey
 					tokens.push_back(MakeToken(TokenType::RightParen, ")"));
 					break;
 				}
+				case '{':
+				{
+					tokens.push_back(MakeToken(TokenType::LeftCurly, "{"));
+					break;
+				}
+				case '}':
+				{
+					tokens.push_back(MakeToken(TokenType::RightCurly, "}"));
+					break;
+				}
 				case '+':
 				{
 					tokens.push_back(MakeToken(TokenType::Plus, "+"));
@@ -124,6 +134,10 @@ namespace Osprey
 						if (identifier_or_keyword == "return")
 						{
 							tokens.push_back(MakeToken(TokenType::Return, "return"));
+						}
+						else if (identifier_or_keyword == "if")
+						{
+							tokens.push_back(MakeToken(TokenType::If, "if"));
 						}
 						else if (identifier_or_keyword == "i32")
 						{

@@ -22,23 +22,23 @@ namespace Osprey
 		virtual ASTVisitorTraversal Accept(ASTVisitor& visitor) const = 0;
 	};
 
-	class ASTTypedNode : public ASTNode
+	class ASTExpr : public ASTNode
 	{
 	public:
-		virtual std::optional<Type> GetType() const = 0;
+		virtual Type GetType() const = 0;
 	};
 
-	class ASTLiteralNode : public ASTTypedNode
+	class ASTLiteral : public ASTExpr
 	{
 	public:
-		ASTLiteralNode(Type type, int32_t value);
-		virtual ~ASTLiteralNode() = default;
+		ASTLiteral(Type type, int32_t value);
+		virtual ~ASTLiteral() = default;
 
 		// ASTNode
 		virtual ASTVisitorTraversal Accept(ASTVisitor& visitor) const override;
 
 		// ASTTypedNode
-		virtual std::optional<Type> GetType() const override { return m_type; }
+		virtual Type GetType() const override { return m_type; }
 
 		int32_t GetValue() const;
 
@@ -47,17 +47,17 @@ namespace Osprey
 		int32_t m_value;
 	};
 
-	class ASTVariableNode : public ASTTypedNode
+	class ASTVariable : public ASTExpr
 	{
 	public:
-		ASTVariableNode(Type type, std::string identifier);
-		virtual ~ASTVariableNode() = default;
+		ASTVariable(Type type, std::string identifier);
+		virtual ~ASTVariable() = default;
 
 		// ASTNode
 		virtual ASTVisitorTraversal Accept(ASTVisitor& visitor) const override;
 
 		// ASTTypedNode
-		virtual std::optional<Type> GetType() const override;
+		virtual Type GetType() const override;
 
 		const std::string& GetIdentifier() const;
 
@@ -66,66 +66,109 @@ namespace Osprey
 		std::string m_identifier;
 	};
 
-	class ASTBinaryOperatorNode : public ASTTypedNode
+	class ASTUnaryExpr : public ASTExpr
 	{
 	public:
-		ASTBinaryOperatorNode(BinaryOperator op, std::unique_ptr<ASTTypedNode> left, std::unique_ptr<ASTTypedNode> right);
-		virtual ~ASTBinaryOperatorNode() = default;
+		ASTUnaryExpr(UnaryOperator op, std::unique_ptr<ASTExpr> node);
+		virtual ~ASTUnaryExpr() = default;
 
 		// ASTNode
 		virtual ASTVisitorTraversal Accept(ASTVisitor& visitor) const override;
 
 		// ASTTypedNode
-		virtual std::optional<Type> GetType() const override;
+		virtual Type GetType() const override;
+
+		UnaryOperator GetOperator() const;
+		const std::unique_ptr<ASTExpr>& GetNode() const;
+
+	private:
+		UnaryOperator m_op;
+		std::unique_ptr<ASTExpr> m_node;
+		Type m_type;
+	};
+	
+	class ASTBinaryExpr : public ASTExpr
+	{
+	public:
+		static std::unique_ptr<ASTBinaryExpr> Create(BinaryOperator op, std::unique_ptr<ASTExpr> left, std::unique_ptr<ASTExpr> right);
+
+		virtual ~ASTBinaryExpr() = default;
+
+		// ASTNode
+		virtual ASTVisitorTraversal Accept(ASTVisitor& visitor) const override;
+
+		// ASTTypedNode
+		virtual Type GetType() const override;
 
 		BinaryOperator GetOperator() const;
-		const std::unique_ptr<ASTTypedNode>& GetLeftNode() const;
-		const std::unique_ptr<ASTTypedNode>& GetRightNode() const;
+		const std::unique_ptr<ASTExpr>& GetLeftNode() const;
+		const std::unique_ptr<ASTExpr>& GetRightNode() const;
 
+		ASTBinaryExpr(BinaryOperator op, std::unique_ptr<ASTExpr> left, std::unique_ptr<ASTExpr> right, Type type);
 	private:
+
 		BinaryOperator m_op;
-		std::unique_ptr<ASTTypedNode> m_left_node;
-		std::unique_ptr<ASTTypedNode> m_right_node;
+		std::unique_ptr<ASTExpr> m_left_node;
+		std::unique_ptr<ASTExpr> m_right_node;
+		Type m_type;
 	};
 
-	class ASTVariableDeclarationNode : public ASTNode
+	class ASTVariableDeclarationStmt : public ASTNode
 	{
 	public:
-		ASTVariableDeclarationNode(std::string identifier, Type type, std::unique_ptr<ASTTypedNode> expression);
-		virtual ~ASTVariableDeclarationNode() = default;
+		ASTVariableDeclarationStmt(std::string identifier, Type type, std::unique_ptr<ASTExpr> expression);
+		virtual ~ASTVariableDeclarationStmt() = default;
 
 		// ASTNode
 		virtual ASTVisitorTraversal Accept(ASTVisitor& visitor) const override;
 
 		const std::string& GetIdentifier() const;
-		const std::unique_ptr<ASTTypedNode>& GetExpressionNode() const;
+		const std::unique_ptr<ASTExpr>& GetExpressionNode() const;
 
 	private:
 		std::string m_identifier;
 		Type m_type;
-		std::unique_ptr<ASTTypedNode> m_expression_node;
+		std::unique_ptr<ASTExpr> m_expression_node;
 	};
 
-	class ASTReturnNode : public ASTNode
+	class ASTAssignmentStmt : public ASTNode
 	{
 	public:
-		ASTReturnNode(std::unique_ptr<ASTTypedNode> expression);
-		virtual ~ASTReturnNode() = default;
+		ASTAssignmentStmt(std::string identifier, std::unique_ptr<ASTExpr> expression);
+		virtual ~ASTAssignmentStmt() = default;
 
 		// ASTNode
 		virtual ASTVisitorTraversal Accept(ASTVisitor& visitor) const override;
 
-		const std::unique_ptr<ASTTypedNode>& GetExpressionNode() const;
+		const std::string& GetIdentifier() const { return m_identifier; }
+		const std::unique_ptr<ASTExpr>& GetExpressionNode() const { return m_expr; }
 
 	private:
-		std::unique_ptr<ASTTypedNode> m_expression_node;
+		std::string m_identifier;
+		Type m_type;
+		std::unique_ptr<ASTExpr> m_expr;
 	};
 
-	class ASTBlockNode : public ASTNode
+	class ASTReturn : public ASTNode
 	{
 	public:
-		ASTBlockNode(std::vector<std::unique_ptr<ASTNode>> expressions);
-		virtual ~ASTBlockNode() = default;
+		ASTReturn(std::unique_ptr<ASTExpr> expression);
+		virtual ~ASTReturn() = default;
+
+		// ASTNode
+		virtual ASTVisitorTraversal Accept(ASTVisitor& visitor) const override;
+
+		const std::unique_ptr<ASTExpr>& GetExpressionNode() const;
+
+	private:
+		std::unique_ptr<ASTExpr> m_expression_node;
+	};
+
+	class ASTBlock : public ASTNode
+	{
+	public:
+		ASTBlock(std::vector<std::unique_ptr<ASTNode>> expressions);
+		virtual ~ASTBlock() = default;
 
 		// ASTNode
 		virtual ASTVisitorTraversal Accept(ASTVisitor& visitor) const override;
@@ -134,6 +177,23 @@ namespace Osprey
 
 	private:
 		std::vector<std::unique_ptr<ASTNode>> m_expression_nodes;
+	};
+
+	class ASTIfStmt : public ASTNode
+	{
+	public:
+		ASTIfStmt(std::unique_ptr<ASTExpr> predicate, std::unique_ptr<ASTBlock> true_block);
+		virtual ~ASTIfStmt() = default;
+
+		// ASTNode
+		virtual ASTVisitorTraversal Accept(ASTVisitor& visitor) const override;
+
+		const std::unique_ptr<ASTExpr>& GetPredicate() const { return m_predicate; }
+		const std::unique_ptr<ASTBlock>& GetTrueBlock() const { return m_true_block; }
+
+	private:
+		std::unique_ptr<ASTExpr> m_predicate;
+		std::unique_ptr<ASTBlock> m_true_block;
 	};
 
 	class AST

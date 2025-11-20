@@ -150,6 +150,9 @@
     <ClInclude Include="VMStack.h" />
     <ClInclude Include="VM.h" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="Script.osp" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

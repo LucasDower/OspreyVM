@@ -8,137 +8,230 @@ namespace Osprey
 {
 	// ASTIntegerLiteralNode
 
-	ASTLiteralNode::ASTLiteralNode(Type type, int32_t value)
+	ASTLiteral::ASTLiteral(Type type, int32_t value)
 		: m_type(type)
 		, m_value(value)
 	{
 	}
 
-	ASTVisitorTraversal ASTLiteralNode::Accept(ASTVisitor& visitor) const
+	ASTVisitorTraversal ASTLiteral::Accept(ASTVisitor& visitor) const
 	{
 		return visitor.Visit(*this);
 	}
 
-	int32_t ASTLiteralNode::GetValue() const
+	int32_t ASTLiteral::GetValue() const
 	{
 		return m_value;
 	}
 
 	// ASTIntegerVariableNode
 
-	ASTVariableNode::ASTVariableNode(Type type, std::string identifier)
+	ASTVariable::ASTVariable(Type type, std::string identifier)
 		: m_type(type)
 		, m_identifier(std::move(identifier))
 	{
 	}
 
-	ASTVisitorTraversal ASTVariableNode::Accept(ASTVisitor& visitor) const
+	ASTVisitorTraversal ASTVariable::Accept(ASTVisitor& visitor) const
 	{
 		return visitor.Visit(*this);
 	}
 
-	std::optional<Type> ASTVariableNode::GetType() const
+	Type ASTVariable::GetType() const
 	{
 		return m_type;
 	}
 
-	const std::string& ASTVariableNode::GetIdentifier() const
+	const std::string& ASTVariable::GetIdentifier() const
 	{
 		return m_identifier;
 	}
 
-	// ASTAddNode
+	// ASTIntegerVariableNode
 
-	ASTBinaryOperatorNode::ASTBinaryOperatorNode(BinaryOperator op, std::unique_ptr<ASTTypedNode> left, std::unique_ptr<ASTTypedNode> right)
+	ASTUnaryExpr::ASTUnaryExpr(UnaryOperator op, std::unique_ptr<ASTExpr> node)
 		: m_op(op)
-		, m_left_node(std::move(left))
-		, m_right_node(std::move(right))
+		, m_node(std::move(node))
+		, m_type(m_node->GetType())
 	{
 	}
 
-	ASTVisitorTraversal ASTBinaryOperatorNode::Accept(ASTVisitor& visitor) const
+	ASTVisitorTraversal ASTUnaryExpr::Accept(ASTVisitor& visitor) const
 	{
 		return visitor.Visit(*this);
 	}
 
-	std::optional<Type> ASTBinaryOperatorNode::GetType() const
-	{
-		return m_left_node->GetType();
-		// Already type checked so we know the right node is the same type
-		// TODO: though we should enforce that as a class invariant and cache the type
-	}
-
-	BinaryOperator ASTBinaryOperatorNode::GetOperator() const
+	UnaryOperator ASTUnaryExpr::GetOperator() const
 	{
 		return m_op;
 	}
 
-	const std::unique_ptr<ASTTypedNode>& ASTBinaryOperatorNode::GetLeftNode() const
+	const std::unique_ptr<ASTExpr>& ASTUnaryExpr::GetNode() const
+	{
+		return m_node;
+	}
+
+	Type ASTUnaryExpr::GetType() const
+	{
+		return m_type;
+	}
+
+	// ASTAddNode
+
+	ASTBinaryExpr::ASTBinaryExpr(BinaryOperator op, std::unique_ptr<ASTExpr> left, std::unique_ptr<ASTExpr> right, Type type)
+		: m_op(op)
+		, m_left_node(std::move(left))
+		, m_right_node(std::move(right))
+		, m_type(type)
+	{
+	}
+
+	std::unique_ptr<ASTBinaryExpr> ASTBinaryExpr::Create(BinaryOperator op, std::unique_ptr<ASTExpr> left, std::unique_ptr<ASTExpr> right)
+	{
+		if (left && right)
+		{
+			const Type left_type = left->GetType();
+			const Type right_type = right->GetType();
+
+			if (left_type == right_type)
+			{
+				std::optional<Type> result_type;
+				switch (op)
+				{
+					case BinaryOperator::Equality:
+					{
+						result_type = Type::Bool;
+						break;
+					}
+					case BinaryOperator::Plus:
+					case BinaryOperator::Minus:
+					case BinaryOperator::Asterisk:
+					{
+						result_type = left_type;
+						break;
+					}
+				}
+
+				if (!result_type)
+				{
+					std::println("Could not create result type for binary expression");
+					return nullptr;
+				}
+
+				return std::make_unique<ASTBinaryExpr>(op, std::move(left), std::move(right), *result_type);
+			}
+		}
+
+		return nullptr;
+	}
+
+	ASTVisitorTraversal ASTBinaryExpr::Accept(ASTVisitor& visitor) const
+	{
+		return visitor.Visit(*this);
+	}
+
+	Type ASTBinaryExpr::GetType() const
+	{
+		return m_type;
+	}
+
+	BinaryOperator ASTBinaryExpr::GetOperator() const
+	{
+		return m_op;
+	}
+
+	const std::unique_ptr<ASTExpr>& ASTBinaryExpr::GetLeftNode() const
 	{
 		return m_left_node;
 	}
 
-	const std::unique_ptr<ASTTypedNode>& ASTBinaryOperatorNode::GetRightNode() const
+	const std::unique_ptr<ASTExpr>& ASTBinaryExpr::GetRightNode() const
 	{
 		return m_right_node;
 	}
 
 	// ASTVariableDeclarationNode
 
-	ASTVariableDeclarationNode::ASTVariableDeclarationNode(std::string identifier, Type type, std::unique_ptr<ASTTypedNode> expression)
+	ASTVariableDeclarationStmt::ASTVariableDeclarationStmt(std::string identifier, Type type, std::unique_ptr<ASTExpr> expression)
 		: m_identifier(std::move(identifier))
 		, m_type(type)
 		, m_expression_node(std::move(expression))
 	{
 	}
 
-	ASTVisitorTraversal ASTVariableDeclarationNode::Accept(ASTVisitor& visitor) const
+	ASTVisitorTraversal ASTVariableDeclarationStmt::Accept(ASTVisitor& visitor) const
 	{
 		return visitor.Visit(*this);
 	}
 
-	const std::string& ASTVariableDeclarationNode::GetIdentifier() const
+	const std::string& ASTVariableDeclarationStmt::GetIdentifier() const
 	{
 		return m_identifier;
 	}
 
-	const std::unique_ptr<ASTTypedNode>& ASTVariableDeclarationNode::GetExpressionNode() const
+	const std::unique_ptr<ASTExpr>& ASTVariableDeclarationStmt::GetExpressionNode() const
 	{
 		return m_expression_node;
 	}
 
 	// ASTReturnNode
 
-	ASTReturnNode::ASTReturnNode(std::unique_ptr<ASTTypedNode> expression)
+	ASTReturn::ASTReturn(std::unique_ptr<ASTExpr> expression)
 		: m_expression_node(std::move(expression))
 	{
 	}
 
-	ASTVisitorTraversal ASTReturnNode::Accept(ASTVisitor& visitor) const
+	ASTVisitorTraversal ASTReturn::Accept(ASTVisitor& visitor) const
 	{
 		return visitor.Visit(*this);
 	}
 
-	const std::unique_ptr<ASTTypedNode>& ASTReturnNode::GetExpressionNode() const
+	const std::unique_ptr<ASTExpr>& ASTReturn::GetExpressionNode() const
 	{
 		return m_expression_node;
 	}
 
 	// ASTBlockNode
 
-	ASTBlockNode::ASTBlockNode(std::vector<std::unique_ptr<ASTNode>> expressions)
+	ASTBlock::ASTBlock(std::vector<std::unique_ptr<ASTNode>> expressions)
 		: m_expression_nodes(std::move(expressions))
 	{
 	}
 
-	ASTVisitorTraversal ASTBlockNode::Accept(ASTVisitor& visitor) const
+	ASTVisitorTraversal ASTBlock::Accept(ASTVisitor& visitor) const
 	{
 		return visitor.Visit(*this);
 	}
 
-	const std::vector<std::unique_ptr<ASTNode>>& ASTBlockNode::GetExpressionNodes() const
+	const std::vector<std::unique_ptr<ASTNode>>& ASTBlock::GetExpressionNodes() const
 	{
 		return m_expression_nodes;
+	}
+
+	// ASTIfStmt
+
+	ASTIfStmt::ASTIfStmt(std::unique_ptr<ASTExpr> predicate, std::unique_ptr<ASTBlock> true_block)
+		: m_predicate(std::move(predicate))
+		, m_true_block(std::move(true_block))
+	{
+	}
+
+	ASTVisitorTraversal ASTIfStmt::Accept(ASTVisitor& visitor) const
+	{
+		return visitor.Visit(*this);
+	}
+
+	// ASTAssignmentStmt
+
+	ASTAssignmentStmt::ASTAssignmentStmt(std::string identifier, std::unique_ptr<ASTExpr> expression)
+		: m_identifier(identifier)
+		, m_expr(std::move(expression))
+	{
+	}
+
+	ASTVisitorTraversal ASTAssignmentStmt::Accept(ASTVisitor& visitor) const
+	{
+		return visitor.Visit(*this);
 	}
 
 	// AST
