@@ -24,8 +24,6 @@ namespace Osprey
 
 	class ASTExpr : public ASTNode
 	{
-	public:
-		virtual Type GetType() const = 0;
 	};
 
 	class ASTLiteral : public ASTExpr
@@ -37,9 +35,7 @@ namespace Osprey
 		// ASTNode
 		virtual ASTVisitorTraversal Accept(ASTVisitor& visitor) const override;
 
-		// ASTTypedNode
-		virtual Type GetType() const override { return m_type; }
-
+		Type GetType() const { return m_type; }
 		int32_t GetValue() const;
 
 	private:
@@ -50,20 +46,33 @@ namespace Osprey
 	class ASTVariable : public ASTExpr
 	{
 	public:
-		ASTVariable(Type type, std::string identifier);
+		ASTVariable(std::string identifier);
 		virtual ~ASTVariable() = default;
 
 		// ASTNode
 		virtual ASTVisitorTraversal Accept(ASTVisitor& visitor) const override;
 
-		// ASTTypedNode
-		virtual Type GetType() const override;
-
 		const std::string& GetIdentifier() const;
 
 	private:
-		Type m_type;
 		std::string m_identifier;
+	};
+
+	class ASTFunctionCall : public ASTExpr
+	{
+	public:
+		ASTFunctionCall(std::string identifier, ArgumentList args);
+		virtual ~ASTFunctionCall() = default;
+
+		// ASTNode
+		virtual ASTVisitorTraversal Accept(ASTVisitor& visitor) const override;
+
+		const std::string& GetIdentifier() const { return m_identifier; }
+		const ArgumentList& GetArgs() const { return m_args; }
+
+	private:
+		std::string m_identifier;
+		ArgumentList m_args;
 	};
 
 	class ASTUnaryExpr : public ASTExpr
@@ -75,42 +84,32 @@ namespace Osprey
 		// ASTNode
 		virtual ASTVisitorTraversal Accept(ASTVisitor& visitor) const override;
 
-		// ASTTypedNode
-		virtual Type GetType() const override;
-
 		UnaryOperator GetOperator() const;
 		const std::unique_ptr<ASTExpr>& GetNode() const;
 
 	private:
 		UnaryOperator m_op;
 		std::unique_ptr<ASTExpr> m_node;
-		Type m_type;
 	};
 	
 	class ASTBinaryExpr : public ASTExpr
 	{
 	public:
-		static std::unique_ptr<ASTBinaryExpr> Create(BinaryOperator op, std::unique_ptr<ASTExpr> left, std::unique_ptr<ASTExpr> right);
-
+		ASTBinaryExpr(BinaryOperator op, std::unique_ptr<ASTExpr> left, std::unique_ptr<ASTExpr> right);
 		virtual ~ASTBinaryExpr() = default;
 
 		// ASTNode
 		virtual ASTVisitorTraversal Accept(ASTVisitor& visitor) const override;
 
-		// ASTTypedNode
-		virtual Type GetType() const override;
-
 		BinaryOperator GetOperator() const;
 		const std::unique_ptr<ASTExpr>& GetLeftNode() const;
 		const std::unique_ptr<ASTExpr>& GetRightNode() const;
 
-		ASTBinaryExpr(BinaryOperator op, std::unique_ptr<ASTExpr> left, std::unique_ptr<ASTExpr> right, Type type);
 	private:
 
 		BinaryOperator m_op;
 		std::unique_ptr<ASTExpr> m_left_node;
 		std::unique_ptr<ASTExpr> m_right_node;
-		Type m_type;
 	};
 
 	class ASTVariableDeclarationStmt : public ASTNode
@@ -123,6 +122,7 @@ namespace Osprey
 		virtual ASTVisitorTraversal Accept(ASTVisitor& visitor) const override;
 
 		const std::string& GetIdentifier() const;
+		Type GetType() const { return m_type; }
 		const std::unique_ptr<ASTExpr>& GetExpressionNode() const;
 
 	private:
@@ -145,7 +145,6 @@ namespace Osprey
 
 	private:
 		std::string m_identifier;
-		Type m_type;
 		std::unique_ptr<ASTExpr> m_expr;
 	};
 
@@ -167,16 +166,16 @@ namespace Osprey
 	class ASTBlock : public ASTNode
 	{
 	public:
-		ASTBlock(std::vector<std::unique_ptr<ASTNode>> expressions);
+		ASTBlock(std::vector<std::unique_ptr<ASTNode>> statements);
 		virtual ~ASTBlock() = default;
 
 		// ASTNode
 		virtual ASTVisitorTraversal Accept(ASTVisitor& visitor) const override;
 
-		const std::vector<std::unique_ptr<ASTNode>>& GetExpressionNodes() const;
+		const std::vector<std::unique_ptr<ASTNode>>& GetStatements() const;
 
 	private:
-		std::vector<std::unique_ptr<ASTNode>> m_expression_nodes;
+		std::vector<std::unique_ptr<ASTNode>> m_statements;
 	};
 
 	class ASTIfStmt : public ASTNode
@@ -196,14 +195,48 @@ namespace Osprey
 		std::unique_ptr<ASTBlock> m_true_block;
 	};
 
+	class ASTFunctionDeclaration : public ASTNode
+	{
+	public:
+		ASTFunctionDeclaration(std::string identifier, FunctionType type, std::unique_ptr<ASTBlock> body);
+		virtual ~ASTFunctionDeclaration() = default;
+
+		// ASTNode
+		virtual ASTVisitorTraversal Accept(ASTVisitor& visitor) const override;
+
+		const std::string& GetIdentifier() const { return m_identifier; }
+		const FunctionType& GetFunctionType() const { return m_type; }
+		const std::unique_ptr<ASTBlock>& GetBody() const { return m_body; }
+
+	private:
+		std::string m_identifier;
+		FunctionType m_type;
+		std::unique_ptr<ASTBlock> m_body;
+	};
+
+	class ASTProgram : public ASTNode
+	{
+	public:
+		ASTProgram(std::vector<std::unique_ptr<ASTFunctionDeclaration>> functions);
+		virtual ~ASTProgram() = default;
+
+		// ASTNode
+		virtual ASTVisitorTraversal Accept(ASTVisitor& visitor) const override;
+
+		const std::vector<std::unique_ptr<ASTFunctionDeclaration>>& GetFunctions() const { return m_functions; }
+
+	private:
+		std::vector<std::unique_ptr<ASTFunctionDeclaration>> m_functions;
+	};
+
 	class AST
 	{
 	public:
-		AST(std::unique_ptr<ASTNode> root);
+		AST(std::unique_ptr<ASTProgram> root);
 
-		const std::unique_ptr<ASTNode>& GetRoot() const;
+		const std::unique_ptr<ASTProgram>& GetRoot() const;
 
 	private:
-		std::unique_ptr<ASTNode> m_root;
+		std::unique_ptr<ASTProgram> m_root;
 	};
 }

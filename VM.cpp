@@ -49,6 +49,22 @@ namespace Osprey
 					m_stack.Push(value);
 					break;
 				}
+				case VMOpCode::POP:
+				{
+					const int32_t count_to_pop = m_program.GetInstruction(m_instruction_offset++);
+					for (int32_t i = 0; i < count_to_pop; ++i)
+					{
+						m_stack.Pop();
+					}
+					break;
+				}
+				case VMOpCode::DUP:
+				{
+					const int32_t offset_to_dup = m_program.GetInstruction(m_instruction_offset++);
+					int32_t value = m_stack.GetFromTop(offset_to_dup);
+					m_stack.Push(value);
+					break;
+				}
 				case VMOpCode::ADD:
 				{
 					const int32_t left = m_stack.Pop();
@@ -99,9 +115,8 @@ namespace Osprey
 				}
 				case VMOpCode::JMP:
 				{
-					int32_t address = m_program.GetInstruction(m_instruction_offset++);
-					int32_t new_instruction_offset = m_memory.Get(address);
-					m_instruction_offset = new_instruction_offset;
+					int32_t address = m_stack.Pop();
+					m_instruction_offset = address;
 					break;
 				}
 				case VMOpCode::HALT:
@@ -109,9 +124,21 @@ namespace Osprey
 					is_running = false;
 					break;
 				}
+				case VMOpCode::SWAP:
+				{
+					int32_t top_offset = m_program.GetInstruction(m_instruction_offset++);
+					if (top_offset > 0)
+					{
+						int32_t top_value = m_stack.GetFromTop(0);
+						int32_t other_value = m_stack.GetFromTop(top_offset);
+						m_stack.SetFromTop(top_offset, top_value);
+						m_stack.SetFromTop(0, other_value);
+					}
+					break;
+				}
 				default:
 				{
-					std::println("Unknown opcode");
+					std::println("Unknown opcode: {}", OpCodeToString(instruction));
 					is_running = false;
 					break;
 				}

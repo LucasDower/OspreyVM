@@ -1,11 +1,11 @@
+square: (n: i32) -> i32
+{
+    return n + n;
+}
+
+main: () -> i32
 {
     x: i32 = 3;
-    y: i32 = 4;
-
-    if (x == 3)
-    {
-        x = 6;
-    }
-
-    return x + y;
+    z: i32 = square(12);
+    return z;
 }

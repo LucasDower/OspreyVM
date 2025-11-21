@@ -1,8 +1,8 @@
 #pragma once
 
 #include <string>
-
-#include "Types.h"
+#include <vector>
+#include <memory>
 
 namespace Osprey
 {
@@ -25,4 +25,15 @@ namespace Osprey
 		}
 		return "";
 	}
+
+	struct FunctionType
+	{
+		std::vector<std::pair<std::string, Type>> parameters;
+		Type return_type;
+	};
+
+	struct ArgumentList
+	{
+		std::vector<std::unique_ptr<class ASTExpr>> args;
+	};
 }

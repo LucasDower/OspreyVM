@@ -45,6 +45,11 @@ namespace Osprey
 					column = 0;
 					break;
 				}
+				case '\t':
+				{
+					column += 4;
+					break;
+				}
 				case ':':
 				{
 					tokens.push_back(MakeToken(TokenType::Colon, ":"));
@@ -78,6 +83,19 @@ namespace Osprey
 				case '+':
 				{
 					tokens.push_back(MakeToken(TokenType::Plus, "+"));
+					break;
+				}
+				case '-':
+				{
+					if (Peek() && *Peek() == '>')
+					{
+						tokens.push_back(MakeToken(TokenType::RightArrow, "->"));
+						Consume();
+					}
+					else
+					{
+						tokens.push_back(MakeToken(TokenType::Plus, "+"));
+					}
 					break;
 				}
 				case '*':

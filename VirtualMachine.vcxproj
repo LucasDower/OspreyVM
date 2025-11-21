@@ -126,6 +126,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="AST.cpp" />
+    <ClCompile Include="ASTDump.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="Parser.cpp" />
     <ClCompile Include="Tokeniser.cpp" />
@@ -137,6 +138,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AST.h" />
+    <ClInclude Include="ASTDump.h" />
     <ClInclude Include="ASTVisitor.h" />
     <ClInclude Include="BinaryOperator.h" />
     <ClInclude Include="Parser.h" />

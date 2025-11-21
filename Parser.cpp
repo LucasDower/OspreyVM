@@ -14,7 +14,7 @@ namespace Osprey
 		size_t cursor = 0;
 		const size_t TokenBufferSize = tokens.size();
 
-		std::unordered_map<std::string, Type> identifier_to_type;
+		//std::unordered_map<std::string, Type> identifier_to_type;
 
 		const auto Consume = [&]() -> std::optional<Token>
 			{
@@ -43,7 +43,41 @@ namespace Osprey
 		std::function<std::unique_ptr<ASTExpr>()> ParseExpression;
 		std::function<std::unique_ptr<ASTBlock>()> ParseBlock;
 
-		// primary_expr := identifier | literal | '('
+		// argument_list := expr (',' expr)*
+		auto ParseArgumentList = [&]() -> std::optional<ArgumentList>
+			{
+				ArgumentList arg_list;
+
+				auto expr = ParseExpression();
+				if (!expr)
+				{
+					std::println("Failed to parse argument list: no expression");
+					return std::nullopt;
+				}
+
+				arg_list.args.push_back(std::move(expr));
+
+				while (Match(TokenType::Comma))
+				{
+					Consume(); // eat the ','
+
+					auto expr2 = ParseExpression();
+					if (!expr2)
+					{
+						std::println("Failed to parse argument list: no expression after ','");
+						return std::nullopt;
+					}
+
+					arg_list.args.push_back(std::move(expr2));
+				}
+
+				return arg_list;
+			};
+
+		// primary_expr := identifier
+		//               | identifier '( argument_list? ')'
+		//               | literal
+		//               | '(' expr ')'
 		std::function<std::unique_ptr<ASTExpr>()> ParsePrimaryExpr = [&]() -> std::unique_ptr<ASTExpr>
 			{
 				const std::optional<Token> token = Consume();
@@ -65,6 +99,7 @@ namespace Osprey
 				}
 				else if (token->type == TokenType::Identifier)
 				{
+					/*
 					auto identifier_type_it = identifier_to_type.find(token->lexeme);
 
 					if (identifier_type_it == identifier_to_type.end())
@@ -72,8 +107,28 @@ namespace Osprey
 						std::println("Cannot find type for unknown identifier '{}'", token->lexeme);
 						return nullptr;
 					}
+					*/
 
-					return std::make_unique<ASTVariable>(identifier_type_it->second, token->lexeme);
+					if (Match(TokenType::LeftParen))
+					{
+						if (Match(TokenType::RightParen))
+						{
+							return std::make_unique<ASTFunctionCall>(token->lexeme, ArgumentList());
+						}
+						else if (std::optional<ArgumentList> arg_list = ParseArgumentList())
+						{
+							return std::make_unique<ASTFunctionCall>(token->lexeme, std::move(*arg_list));
+						}
+						else
+						{
+							std::println("Failed to parse function call");
+							return nullptr;
+						}
+					}
+					else
+					{
+						return std::make_unique<ASTVariable>(token->lexeme);
+					}
 				}
 				else if (token->type == TokenType::LeftParen)
 				{
@@ -171,7 +226,7 @@ namespace Osprey
 							return nullptr;
 						}
 
-						left_expr = ASTBinaryExpr::Create(*operator_match, std::move(left_expr), std::move(right_expr));
+						left_expr = std::make_unique<ASTBinaryExpr>(*operator_match, std::move(left_expr), std::move(right_expr));
 						if (!left_expr)
 						{
 							std::println("Failed to construct binary expr");
@@ -222,7 +277,7 @@ namespace Osprey
 							return nullptr;
 						}
 
-						left_expr = ASTBinaryExpr::Create(*operator_match, std::move(left_expr), std::move(right_expr));
+						left_expr = std::make_unique<ASTBinaryExpr>(*operator_match, std::move(left_expr), std::move(right_expr));
 						if (!left_expr)
 						{
 							std::println("Failed to construct binary expr");
@@ -283,7 +338,7 @@ namespace Osprey
 							return nullptr;
 						}
 
-						left_expr = ASTBinaryExpr::Create(*operator_match, std::move(left_expr), std::move(right_expr));
+						left_expr = std::make_unique<ASTBinaryExpr>(*operator_match, std::move(left_expr), std::move(right_expr));
 						if (!left_expr)
 						{
 							std::println("Failed to construct binary expr");
@@ -332,7 +387,7 @@ namespace Osprey
 						return nullptr;
 					}
 
-					left_expr = ASTBinaryExpr::Create(*operator_match, std::move(left_expr), std::move(right_expr));
+					left_expr = std::make_unique<ASTBinaryExpr>(*operator_match, std::move(left_expr), std::move(right_expr));
 					if (!left_expr)
 					{
 						std::println("Failed to construct binary expr");
@@ -364,7 +419,7 @@ namespace Osprey
 						return nullptr;
 					}
 
-					left_expr = ASTBinaryExpr::Create(BinaryOperator::And, std::move(left_expr), std::move(right_expr));
+					left_expr = std::make_unique<ASTBinaryExpr>(BinaryOperator::And, std::move(left_expr), std::move(right_expr));
 					if (!left_expr)
 					{
 						std::println("Failed to construct binary expr");
@@ -396,7 +451,7 @@ namespace Osprey
 						return nullptr;
 					}
 
-					left_expr = ASTBinaryExpr::Create(BinaryOperator::Or, std::move(left_expr), std::move(right_expr));
+					left_expr = std::make_unique<ASTBinaryExpr>(BinaryOperator::Or, std::move(left_expr), std::move(right_expr));
 					if (!left_expr)
 					{
 						std::println("Failed to construct binary expr");
@@ -468,14 +523,6 @@ namespace Osprey
 					return nullptr;
 				}
 
-				if (!identifier_to_type.contains(identifier_token->lexeme))
-				{
-					std::println("Failed to parse assignment statement: identifier '{}' does not exists", identifier_token->lexeme);
-					return nullptr;
-				}
-
-				const Type identifier_type = identifier_to_type.at(identifier_token->lexeme);
-
 				const std::optional<Token> assignment_token = Consume();
 				if (!assignment_token || assignment_token->type != TokenType::Assign)
 				{
@@ -487,14 +534,6 @@ namespace Osprey
 				if (!expr)
 				{
 					std::println("Failed to parse assignment statement: no expr");
-					return nullptr;
-				}
-
-				const Type expr_type = expr->GetType();
-
-				if (identifier_type != expr_type)
-				{
-					std::println("Failed to type-check assignment statement: variable '{}' is of type '{}' but is being assigned a value of type '{}'", identifier_token->lexeme, TypeToString(identifier_type), TypeToString(expr_type));
 					return nullptr;
 				}
 
@@ -519,12 +558,6 @@ namespace Osprey
 					return nullptr;
 				}
 
-				if (identifier_to_type.contains(identifier_token->lexeme))
-				{
-					std::println("Failed to parse variable declaration statement: identifier '{}' already exists", identifier_token->lexeme);
-					return nullptr;
-				}
-
 				const std::optional<Token> colon_token = Consume();
 
 				if (!colon_token || colon_token->type != TokenType::Colon)
@@ -540,8 +573,6 @@ namespace Osprey
 					return nullptr;
 				}
 
-				identifier_to_type.insert({ identifier_token->lexeme, *type });
-
 				const std::optional<Token> assignment_token = Consume();
 
 				if (!assignment_token || assignment_token->type != TokenType::Assign)
@@ -554,20 +585,6 @@ namespace Osprey
 				if (!expression)
 				{
 					std::println("Failed to parse variable declaration statement: no expression");
-					return nullptr;
-				}
-
-				const std::optional<Type> expression_type = expression->GetType();
-
-				if (!expression_type)
-				{
-					std::println("Type-check failed: Failed to get type of expression");
-					return nullptr;
-				}
-
-				if (expression_type != type)
-				{
-					std::println("Type-check failed: Trying to assign a {} expression to a {} variable", TypeToString(*expression_type), TypeToString(*type));
 					return nullptr;
 				}
 
@@ -602,13 +619,6 @@ namespace Osprey
 				if (!predicate_node)
 				{
 					std::println("Failed to parse if statement: expected predicate");
-					return nullptr;
-				}
-
-				const std::optional<Type> predicate_type = predicate_node->GetType();
-				if (!predicate_type || (*predicate_type) != Type::Bool)
-				{
-					std::println("Failed to parse if statement: expected predicate to be of type 'bool'");
 					return nullptr;
 				}
 
@@ -700,14 +710,146 @@ namespace Osprey
 				return std::make_unique<ASTBlock>(std::move(statement_nodes));
 			};
 
-		std::unique_ptr<ASTBlock> block_node = ParseBlock();
-		
-		if (!block_node)
+
+		// function_type := "(" ")" "->" type
+		//                | "(" identifier ":" type ")" "->" type
+		//                | "(" identifier ":" type ("," identifier ":" type)* ")" "->" type
+		const auto ParseFunctionType = [&]() -> std::optional<FunctionType>
+			{
+				const std::optional<Token> open_paren_token = Consume();
+				if (!open_paren_token || open_paren_token->type != TokenType::LeftParen)
+				{
+					std::println("Failed to parse function declaration: no identifier");
+					return std::nullopt;
+				}
+
+				FunctionType function_type;
+
+				while (true)
+				{
+					if (Match(TokenType::RightParen))
+					{
+						Consume(); // eat the '('
+						break;
+					}
+					else if (Match(TokenType::Identifier))
+					{
+						const Token identifier_token = *Consume();
+
+						const std::optional<Token> colon_token = Consume();
+						if (!colon_token || colon_token->type != TokenType::Colon)
+						{
+							std::println("Failed to parse function declaration: expected ':'");
+							return std::nullopt;
+						}
+
+						std::optional<Type> type = ParseType();
+						if (!type)
+						{
+							std::println("Failed to parse function declaration: no type");
+							return std::nullopt;
+						}
+
+						function_type.parameters.push_back({ identifier_token.lexeme, *type });
+
+						if (Match(TokenType::Comma))
+						{
+							Consume(); // eat the ','
+						}
+						else if (!Match(TokenType::RightParen))
+						{
+							std::println("Failed to parse function declaration: unexpected character");
+							return std::nullopt;
+						}
+					}
+					else
+					{
+						const std::optional<Token> next = Peek();
+						std::println("Failed to parse function declaration: unexpected character '{}', expected <identifier> or ')'", next ? next->lexeme : "[EOF]");
+						return std::nullopt;
+					}
+				}
+				
+				const std::optional<Token> right_arrow_token = Consume();
+				if (!right_arrow_token || right_arrow_token->type != TokenType::RightArrow)
+				{
+					std::println("Failed to parse function declaration: expected '->'");
+					return std::nullopt;
+				}
+
+				const std::optional<Type> result_type = ParseType();
+				if (!result_type)
+				{
+					std::println("Failed to parse function declaration: no result type");
+					return std::nullopt;
+				}
+
+				function_type.return_type = *result_type;
+
+				return function_type;
+			};
+
+		// function_declaration := identifier ":" function_type block
+		const auto ParseFunctionDeclaration = [&]() -> std::unique_ptr<ASTFunctionDeclaration>
+			{
+				const std::optional<Token> identifier_token = Consume();
+				if (!identifier_token || identifier_token->type != TokenType::Identifier)
+				{
+					std::println("Failed to parse function declaration: no identifier");
+					return nullptr;
+				}
+
+				const std::optional<Token> colon_token = Consume();
+				if (!colon_token || colon_token->type != TokenType::Colon)
+				{
+					std::println("Failed to parse function declaration: expected ':'");
+					return nullptr;
+				}
+
+				std::optional<FunctionType> function_type = ParseFunctionType();
+				if (!function_type)
+				{
+					std::println("Failed to parse function declaration: no function type");
+					return nullptr;
+				}
+
+				std::unique_ptr<ASTBlock> block_node = ParseBlock();
+				if (!block_node)
+				{
+					std::println("Failed to parse function declaration: no block");
+					return nullptr;
+				}
+
+				return std::make_unique<ASTFunctionDeclaration>(identifier_token->lexeme, *function_type, std::move(block_node));
+			};
+
+		// program := function_declaration*
+		const auto ParseProgram = [&]() -> std::unique_ptr<ASTProgram>
+			{
+				std::vector<std::unique_ptr<ASTFunctionDeclaration>> functions;
+
+				while (Peek())
+				{
+					std::unique_ptr<ASTFunctionDeclaration> function = ParseFunctionDeclaration();
+					if (!function)
+					{
+						std::println("Failed to parse program: invalid function");
+						return nullptr;
+					}
+
+					functions.push_back(std::move(function));
+				}
+
+				return std::make_unique<ASTProgram>(std::move(functions));
+			};
+
+		std::unique_ptr<ASTProgram> program = ParseProgram();
+		if (!program)
 		{
 			std::println("Failed to parse");
 			return std::nullopt;
 		}
 
-		return AST(std::move(block_node));
+		return AST(std::move(program));
 	}
 }

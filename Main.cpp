@@ -2,6 +2,7 @@
 #include "Parser.h"
 #include "VMCompiler.h"
 #include "VM.h"
+#include "ASTDump.h"
 
 #include <string>
 #include <fstream>
@@ -30,6 +31,9 @@ int main()
 	{
 		return 1;
 	}
+
+	Osprey::ASTDump ast_dumper;
+	ast_dumper.Visit(*ast->GetRoot());
 
 	std::optional<Osprey::VMProgram> program = Osprey::Compile(*ast);
 	if (!program)

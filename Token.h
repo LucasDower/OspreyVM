@@ -32,6 +32,8 @@ namespace Osprey
 		GtEq,
 		And,
 		Or,
+		Comma,
+		RightArrow,
 	};
 
 	struct Token

@@ -42,6 +42,9 @@
     <ClCompile Include="Parser.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="ASTDump.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="VM.h">
@@ -81,6 +84,9 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="BinaryOperator.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ASTDump.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
