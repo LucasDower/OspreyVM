@@ -1,6 +1,6 @@
-#include "AST.h"
+#include "OspreyAST/AST.h"
 
-#include "ASTVisitor.h"
+#include "OspreyAST/ASTVisitor.h"
 
 #include <print>
 

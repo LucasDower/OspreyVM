@@ -1,7 +1,7 @@
-#include "Parser.h"
+#include "OspreyAST/Parser.h"
 
-#include "Types.h"
-#include "BinaryOperator.h"
+#include "OspreyAST/Types.h"
+#include "OspreyAST/BinaryOperator.h"
 
 #include <functional>
 #include <memory>

@@ -1,5 +1,5 @@
-#include "VM.h"
-#include "VMOpCode.h"
+#include "OspreyVM/VM.h"
+#include "OspreyVM/VMOpCode.h"
 
 #include <print>
 

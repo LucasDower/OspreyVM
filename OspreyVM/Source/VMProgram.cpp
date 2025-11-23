@@ -1,4 +1,4 @@
-#include "VMProgram.h"
+#include "OspreyVM/VMProgram.h"
 
 namespace Osprey
 {

@@ -1,4 +1,4 @@
-#include "VMMemory.h"
+#include "OspreyVM/VMMemory.h"
 
 namespace Osprey
 {

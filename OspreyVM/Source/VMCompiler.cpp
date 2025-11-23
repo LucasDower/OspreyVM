@@ -1,9 +1,9 @@
-#include "VMCompiler.h"
+#include "OspreyVM/VMCompiler.h"
 
-#include "AST.h"
-#include "VMProgram.h"
-#include "ASTVisitor.h"
-#include "VMOpCode.h"
+#include "OspreyAST/AST.h"
+#include "OspreyAST/ASTVisitor.h"
+#include "OspreyVM/VMProgram.h"
+#include "OspreyVM/VMOpCode.h"
 
 #include <vector>
 #include <unordered_map>

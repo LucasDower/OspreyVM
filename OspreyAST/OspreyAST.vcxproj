@@ -18,13 +18,28 @@
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Include\OspreyAST\AST.h" />
+    <ClInclude Include="Include\OspreyAST\ASTDump.h" />
+    <ClInclude Include="Include\OspreyAST\ASTVisitor.h" />
+    <ClInclude Include="Include\OspreyAST\BinaryOperator.h" />
+    <ClInclude Include="Include\OspreyAST\Parser.h" />
+    <ClInclude Include="Include\OspreyAST\Token.h" />
+    <ClInclude Include="Include\OspreyAST\Tokeniser.h" />
+    <ClInclude Include="Include\OspreyAST\Types.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Source\AST.cpp" />
+    <ClCompile Include="Source\ASTDump.cpp" />
+    <ClCompile Include="Source\Parser.cpp" />
+    <ClCompile Include="Source\Tokeniser.cpp" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{358241ad-85f2-4701-a915-4f64af5127c8}</ProjectGuid>
-    <RootNamespace>VirtualMachine</RootNamespace>
+    <ProjectGuid>{4928167f-c3fb-47ef-8104-a9c6c7d86ea7}</ProjectGuid>
+    <RootNamespace>OspreyAST</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
-    <ProjectName>Old</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -72,12 +87,12 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <OutDir>$(SolutionDir)Build\$(Platform)\$(Configuration)\</OutDir>
-    <IntDir>$(SolutionDir)Build\$(Platform)\$(Configuration)\Intermediate</IntDir>
+    <OutDir>$(SolutionDir)$(ProjectName)\Build\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)$(ProjectName)\Build\$(Platform)\$(Configuration)\Intermediate\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <OutDir>$(SolutionDir)Build\$(Platform)\$(Configuration)\</OutDir>
-    <IntDir>$(SolutionDir)Build\$(Platform)\$(Configuration)\Intermediate</IntDir>
+    <OutDir>$(SolutionDir)$(ProjectName)\Build\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)$(ProjectName)\Build\$(Platform)\$(Configuration)\Intermediate\</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -112,6 +127,7 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp23</LanguageStandard>
+      <AdditionalIncludeDirectories>$(SolutionDir)$(ProjectName)\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -127,6 +143,7 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp23</LanguageStandard>
+      <AdditionalIncludeDirectories>$(SolutionDir)$(ProjectName)\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

@@ -1,4 +1,4 @@
-#include "VMStack.h"
+#include "OspreyVM/VMStack.h"
 
 #include <iostream>
 

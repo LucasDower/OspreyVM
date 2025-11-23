@@ -1,9 +1,9 @@
 #pragma once
 
+#include "OspreyAST/Token.h"
+
 #include <vector>
 #include <optional>
-
-#include "Token.h"
 
 namespace Osprey
 {

@@ -1,11 +1,11 @@
 #pragma once
 
+#include "OspreyVM/VMProgram.h"
+#include "OspreyVM/VMStack.h"
+#include "OspreyVM/VMMemory.h"
+
 #include <optional>
 #include <memory>
-
-#include "VMProgram.h"
-#include "VMStack.h"
-#include "VMMemory.h"
 
 namespace Osprey
 {

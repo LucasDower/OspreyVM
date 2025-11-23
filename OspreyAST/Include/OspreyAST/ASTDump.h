@@ -1,7 +1,7 @@
 #pragma once
 
-#include "AST.h"
-#include "ASTVisitor.h"
+#include "OspreyAST/AST.h"
+#include "OspreyAST/ASTVisitor.h"
 
 #include <string>
 
