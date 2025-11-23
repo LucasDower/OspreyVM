@@ -32,6 +32,8 @@ namespace Osprey
 	class VMScopeStack
 	{
 	public:
+		int32_t Temporaries = 0;
+
 		VMScopeStack(std::string debug_label)
 			: m_debug_label(debug_label)
 		{
@@ -109,6 +111,9 @@ namespace Osprey
 		}
 
 		const VMScopeStack& TopScope() const { return scopes.back(); }
+		VMScopeStack& TopScope() { return scopes.back(); }
+
+		uint32_t Temporaries = 0;
 
 		void PopScope()
 		{
@@ -163,6 +168,7 @@ namespace Osprey
 					}
 					++offset;
 				}
+				offset += scope.Temporaries;
 			}
 
 			return std::nullopt;
@@ -174,7 +180,7 @@ namespace Osprey
 
 			for (const VMScopeStack& scope : scopes)
 			{
-				size += scope.GetIdentifiers().size();
+				size += scope.GetIdentifiers().size() + scope.Temporaries;
 			}
 
 			return size;
@@ -460,7 +466,9 @@ namespace Osprey
 				{
 					return ASTVisitorTraversal::Stop;
 				}
+				++m_context.TopScope().Temporaries;
 			}
+			m_context.TopScope().Temporaries = 0;
 
 			// Push the instruction offset of the function we're calling
 			std::optional<size_t> function_instruction_offset = m_context.GetFunctionInstructionOffset(node.GetIdentifier());
@@ -515,10 +523,10 @@ namespace Osprey
 			// a0, a1, a2 are all this function's arguments
 			// and r is the return value
 
-			const int32_t parameter_count = node.GetFunctionType().parameters.size();
+			//const int32_t parameter_count = node.GetFunctionType().parameters.size();
 			const int32_t identifier_count = m_context.TopScope().GetIdentifiers().size();
 
-			const int32_t cleanup_count = parameter_count + identifier_count;
+			const int32_t cleanup_count = identifier_count;// +parameter_count;
 
 			m_context.EmitOpCode(VMOpCode::SWAP, "cleanup function working data");
 			m_context.EmitOperand(cleanup_count, "^^");

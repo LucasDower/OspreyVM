@@ -80,6 +80,11 @@ namespace Osprey
 					tokens.push_back(MakeToken(TokenType::RightCurly, "}"));
 					break;
 				}
+				case ',':
+				{
+					tokens.push_back(MakeToken(TokenType::Comma, ","));
+					break;
+				}
 				case '+':
 				{
 					tokens.push_back(MakeToken(TokenType::Plus, "+"));

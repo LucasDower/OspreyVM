@@ -71,6 +71,13 @@ namespace Osprey
 					arg_list.args.push_back(std::move(expr2));
 				}
 
+				if (!Match(TokenType::RightParen))
+				{
+					std::println("Failed to parse argument list: expected ')'");
+					return std::nullopt;
+				}
+				Consume(); // eat the ')'
+
 				return arg_list;
 			};
 
@@ -111,8 +118,12 @@ namespace Osprey
 
 					if (Match(TokenType::LeftParen))
 					{
+						Consume(); // eat the '('
+
 						if (Match(TokenType::RightParen))
 						{
+							Consume(); // eat the ')'
+
 							return std::make_unique<ASTFunctionCall>(token->lexeme, ArgumentList());
 						}
 						else if (std::optional<ArgumentList> arg_list = ParseArgumentList())
@@ -540,7 +551,7 @@ namespace Osprey
 				const std::optional<Token> semicolon_token = Consume();
 				if (!semicolon_token || semicolon_token->type != TokenType::Semicolon)
 				{
-					std::println("Failed to type-check assignment statement: expected ';'");
+					std::println("Failed to type-check assignment statement: expected ';' got '{}'", semicolon_token->lexeme);
 					return nullptr;
 				}
 
@@ -592,7 +603,7 @@ namespace Osprey
 
 				if (!semicolon_token || semicolon_token->type != TokenType::Semicolon)
 				{
-					std::println("Failed to parse variable declaration statement: expected ';'");
+					std::println("Failed to parse variable declaration statement: expected ';' got '{}'", semicolon_token->lexeme);
 					return nullptr;
 				}
 

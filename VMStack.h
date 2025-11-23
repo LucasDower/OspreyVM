@@ -15,6 +15,7 @@ namespace Osprey
 		int32_t GetFromTop(size_t offset);
 
 		void Dump() const;
+		const std::vector<int32_t>& Get() const { return Stack; }
 
 	private:
 		std::vector<int32_t> Stack;
