@@ -15,6 +15,7 @@ namespace Osprey
 		static std::optional<VM> Load(VMProgram program);
 
 		void Execute();
+		void Step();
 
 		const VMProgram& GetProgram() const;
 		const VMStack& GetStack() const;
@@ -27,5 +28,6 @@ namespace Osprey
 		VMStack m_stack;
 		VMMemory m_memory;
 		size_t m_instruction_offset;
+		bool is_running = true;
 	};
 }

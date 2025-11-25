@@ -192,7 +192,7 @@ namespace Osprey
 
 	// ASTAssignmentStmt
 
-	ASTFunctionDeclaration::ASTFunctionDeclaration(std::string identifier, FunctionType type, std::unique_ptr<ASTBlock> body)
+	ASTFunctionDeclaration::ASTFunctionDeclaration(std::string identifier, LabeledFunctionType type, std::unique_ptr<ASTBlock> body)
 		: m_identifier(std::move(identifier))
 		, m_type(std::move(type))
 		, m_body(std::move(body))

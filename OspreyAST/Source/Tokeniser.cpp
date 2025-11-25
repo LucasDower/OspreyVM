@@ -170,6 +170,10 @@ namespace Osprey
 						{
 							tokens.push_back(MakeToken(TokenType::F32, "f32"));
 						}
+						else if (identifier_or_keyword == "mut")
+						{
+							tokens.push_back(MakeToken(TokenType::Mutable, "mut"));
+						}
 						else
 						{
 							tokens.push_back(MakeToken(TokenType::Identifier, std::move(identifier_or_keyword)));

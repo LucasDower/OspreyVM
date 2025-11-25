@@ -198,19 +198,19 @@ namespace Osprey
 	class ASTFunctionDeclaration : public ASTNode
 	{
 	public:
-		ASTFunctionDeclaration(std::string identifier, FunctionType type, std::unique_ptr<ASTBlock> body);
+		ASTFunctionDeclaration(std::string identifier, LabeledFunctionType type, std::unique_ptr<ASTBlock> body);
 		virtual ~ASTFunctionDeclaration() = default;
 
 		// ASTNode
 		virtual ASTVisitorTraversal Accept(ASTVisitor& visitor) const override;
 
 		const std::string& GetIdentifier() const { return m_identifier; }
-		const FunctionType& GetFunctionType() const { return m_type; }
+		const LabeledFunctionType& GetFunctionType() const { return m_type; }
 		const std::unique_ptr<ASTBlock>& GetBody() const { return m_body; }
 
 	private:
 		std::string m_identifier;
-		FunctionType m_type;
+		LabeledFunctionType m_type;
 		std::unique_ptr<ASTBlock> m_body;
 	};
 

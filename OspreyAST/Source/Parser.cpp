@@ -6,6 +6,7 @@
 #include <functional>
 #include <memory>
 #include <print>
+#include <cassert>
 
 namespace Osprey
 {
@@ -97,12 +98,13 @@ namespace Osprey
 				if (token->type == TokenType::I32)
 				{
 					const int32_t Number = std::stoi(token->lexeme); // TODO: throws if fails
-					return std::make_unique<ASTLiteral>(Type::I32, Number);
+					return std::make_unique<ASTLiteral>(Type(DataType::I32), Number);
 				}
 				else if (token->type == TokenType::F32)
 				{
 					const float Number = std::stof(token->lexeme); // TODO: throws if fails
-					return std::make_unique<ASTLiteral>(Type::F32, *reinterpret_cast<const int32_t*>(&Number));
+					return nullptr; // TODO:
+					//return std::make_unique<ASTLiteral>(Type::F32, *reinterpret_cast<const int32_t*>(&Number));
 				}
 				else if (token->type == TokenType::Identifier)
 				{
@@ -514,11 +516,12 @@ namespace Osprey
 
 				if (type_token->type == TokenType::I32)
 				{
-					return Type::I32;
+					return Type(DataType::I32);
 				}
 				if (type_token->type == TokenType::F32)
 				{
-					return Type::F32;
+					return std::nullopt; // TODO
+					//return Type::F32(qualifier);
 				}
 
 				std::println("Failed to parse type: unexpected '{}'", type_token->lexeme);
@@ -575,6 +578,15 @@ namespace Osprey
 				{
 					std::println("Failed to parse variable declaration statement: expected ':'");
 					return nullptr;
+				}
+
+				// TODO!
+				Qualifier qualifier = Qualifier::Const;
+
+				if (Match(TokenType::Mutable))
+				{
+					Consume(); // eat the 'mut'
+					qualifier = Qualifier::Mutable;
 				}
 
 				std::optional<Type> type = ParseType();
@@ -725,7 +737,7 @@ namespace Osprey
 		// function_type := "(" ")" "->" type
 		//                | "(" identifier ":" type ")" "->" type
 		//                | "(" identifier ":" type ("," identifier ":" type)* ")" "->" type
-		const auto ParseFunctionType = [&]() -> std::optional<FunctionType>
+		const auto ParseFunctionType = [&]() -> std::optional<LabeledFunctionType>
 			{
 				const std::optional<Token> open_paren_token = Consume();
 				if (!open_paren_token || open_paren_token->type != TokenType::LeftParen)
@@ -734,7 +746,8 @@ namespace Osprey
 					return std::nullopt;
 				}
 
-				FunctionType function_type;
+				std::vector<Type> parameters;
+				std::vector<std::string> parameter_identifiers;
 
 				while (true)
 				{
@@ -761,7 +774,8 @@ namespace Osprey
 							return std::nullopt;
 						}
 
-						function_type.parameters.push_back({ identifier_token.lexeme, *type });
+						parameters.push_back(*type);
+						parameter_identifiers.push_back(identifier_token.lexeme);
 
 						if (Match(TokenType::Comma))
 						{
@@ -788,16 +802,18 @@ namespace Osprey
 					return std::nullopt;
 				}
 
-				const std::optional<Type> result_type = ParseType();
-				if (!result_type)
+				const std::optional<Type> return_type = ParseType();
+				if (!return_type)
 				{
-					std::println("Failed to parse function declaration: no result type");
+					std::println("Failed to parse function declaration: no return type");
 					return std::nullopt;
 				}
 
-				function_type.return_type = *result_type;
+				FunctionType function_type(std::move(parameters), *return_type);
+				std::optional<LabeledFunctionType> labeled_function_type = LabeledFunctionType::Create(std::move(parameter_identifiers), std::move(function_type));
+				assert(labeled_function_type.has_value());
 
-				return function_type;
+				return *labeled_function_type;
 			};
 
 		// function_declaration := identifier ":" function_type block
@@ -817,7 +833,7 @@ namespace Osprey
 					return nullptr;
 				}
 
-				std::optional<FunctionType> function_type = ParseFunctionType();
+				std::optional<LabeledFunctionType> function_type = ParseFunctionType();
 				if (!function_type)
 				{
 					std::println("Failed to parse function declaration: no function type");

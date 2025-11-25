@@ -33,6 +33,7 @@
     <ClCompile Include="Source\ASTDump.cpp" />
     <ClCompile Include="Source\Parser.cpp" />
     <ClCompile Include="Source\Tokeniser.cpp" />
+    <ClCompile Include="Source\Types.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>

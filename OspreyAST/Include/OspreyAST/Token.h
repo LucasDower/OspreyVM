@@ -34,6 +34,7 @@ namespace Osprey
 		Or,
 		Comma,
 		RightArrow,
+		Mutable,
 	};
 
 	struct Token

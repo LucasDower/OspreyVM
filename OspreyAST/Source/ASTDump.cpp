@@ -6,7 +6,7 @@ namespace Osprey
 {
 	ASTVisitorTraversal ASTDump::Visit(const ASTLiteral& node)
 	{
-		PrintIndented(std::format("literal ({}, {})", TypeToString(node.GetType()), node.GetValue()));
+		PrintIndented(std::format("literal ({}, {})", node.GetType().ToString(), node.GetValue()));
 
 		return ASTVisitorTraversal::Continue;
 	}
@@ -34,7 +34,7 @@ namespace Osprey
 
 	ASTVisitorTraversal ASTDump::Visit(const ASTVariableDeclarationStmt& node)
 	{
-		PrintIndented(std::format("variable_declaration ({}, {})", node.GetIdentifier(), TypeToString(node.GetType())));
+		PrintIndented(std::format("variable_declaration ({}, {})", node.GetIdentifier(), node.GetType().ToString()));
 
 		++m_indent;
 		node.GetExpressionNode()->Accept(*this);

@@ -11,15 +11,15 @@
 int main()
 {
 	const std::string script =
-		"add: (a: i32, b: i32) -> i32 \
+		"main: () -> i32 \
 		{ \
-			return a + b; \
-		} \
-		main: () -> i32 \
-		{ \
-		x: i32 = add(1, 2); \
-		y: i32 = add(x, 3); \
-			return y; \
+			x: mut i32 = 3; \
+			y: i32 = x + x; \
+			if (y == 6) \
+			{ \
+				x = 5; \
+			} \
+			return z; \
 		}";
 
 	std::optional<Osprey::TokenBuffer> tokens = Osprey::Tokenise(script);

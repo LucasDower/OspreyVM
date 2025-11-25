@@ -13,6 +13,8 @@
 
 namespace Osprey
 {
+	int32_t TempIndex = 0;
+
 	class VMIdentifier
 	{
 	public:
@@ -32,12 +34,23 @@ namespace Osprey
 	class VMScopeStack
 	{
 	public:
-		int32_t Temporaries = 0;
-
-		VMScopeStack(std::string debug_label)
+		VMScopeStack(std::string debug_label, int32_t offset_from_bottom)
 			: m_debug_label(debug_label)
+			, m_offset_from_bottom(offset_from_bottom)
 		{
 		}
+
+		int32_t GetOffsetFromBottom() const
+		{
+			return m_offset_from_bottom;
+		}
+
+		int32_t GetCurrentSize() const
+		{
+			return m_identifiers.size() + Temps;
+		}
+
+		int32_t Temps = 0;
 
 		const std::string& GetDebugLabel() const { return m_debug_label; }
 
@@ -97,6 +110,7 @@ namespace Osprey
 		const std::vector<std::pair<std::string, size_t>>& GetFunctions() const { return m_functions; }
 
 	private:
+		int32_t m_offset_from_bottom = 0;
 		std::string m_debug_label;
 		std::vector<VMIdentifier> m_identifiers;
 		std::vector<std::pair<std::string, size_t>> m_functions;
@@ -107,13 +121,16 @@ namespace Osprey
 	public:
 		void PushScope(std::string debug_label)
 		{
-			scopes.push_back(VMScopeStack(debug_label));
+			int32_t offset_from_bottom = 0;
+			if (!scopes.empty())
+			{
+				offset_from_bottom += scopes.back().GetCurrentSize() + scopes.back().GetOffsetFromBottom();
+			}
+			scopes.emplace_back(debug_label, offset_from_bottom);
 		}
 
 		const VMScopeStack& TopScope() const { return scopes.back(); }
 		VMScopeStack& TopScope() { return scopes.back(); }
-
-		uint32_t Temporaries = 0;
 
 		void PopScope()
 		{
@@ -156,19 +173,17 @@ namespace Osprey
 
 		std::optional<size_t> GetVariableStackOffsetFromBottom(std::string identifier)
 		{
-			size_t offset = 0;
-
 			for (const VMScopeStack& scope : scopes)
 			{
-				for (const VMIdentifier& some_identifier : scope.GetIdentifiers())
+				for (int32_t scope_offset = 0; scope_offset < scope.GetIdentifiers().size(); ++scope_offset)
 				{
+					const VMIdentifier& some_identifier = scope.GetIdentifiers()[scope_offset];
+
 					if (some_identifier.GetIdentifier() == identifier)
 					{
-						return offset;
+						return scope.GetOffsetFromBottom() + scope_offset;
 					}
-					++offset;
 				}
-				offset += scope.Temporaries;
 			}
 
 			return std::nullopt;
@@ -176,14 +191,7 @@ namespace Osprey
 
 		size_t GetVariableStackSize()
 		{
-			size_t size = 0;
-
-			for (const VMScopeStack& scope : scopes)
-			{
-				size += scope.GetIdentifiers().size() + scope.Temporaries;
-			}
-
-			return size;
+			return scopes.back().GetOffsetFromBottom() + scopes.back().GetCurrentSize();
 		}
 
 		std::optional<size_t> GetVariableStackOffsetFromTop(std::string identifier)
@@ -299,9 +307,11 @@ namespace Osprey
 	private:
 		ASTVisitorTraversal Visit(const ASTLiteral& node)
 		{
-			const std::string dbg_message = std::format("{} literal = {}", TypeToString(node.GetType()), node.GetValue());
+			const std::string dbg_message = std::format("{} literal = {}", node.GetType().ToString(), node.GetValue());
 			m_context.EmitOpCode(VMOpCode::PUSH, dbg_message);
 			m_context.EmitOperand(node.GetValue(), dbg_message);
+
+			++m_context.TopScope().Temps;
 
 			return ASTVisitorTraversal::Continue;
 		}
@@ -317,6 +327,8 @@ namespace Osprey
 
 			m_context.EmitOpCode(VMOpCode::DUP);
 			m_context.EmitOperand(*top_offset);
+
+			++m_context.TopScope().Temps;
 
 			return ASTVisitorTraversal::Continue;
 		}
@@ -361,10 +373,14 @@ namespace Osprey
 			if (node.GetOperator() == BinaryOperator::Plus)
 			{
 				m_context.EmitOpCode(VMOpCode::ADD);
+
+				--m_context.TopScope().Temps;
 			}
 			else if (node.GetOperator() == BinaryOperator::Asterisk)
 			{
 				m_context.EmitOpCode(VMOpCode::MUL);
+
+				--m_context.TopScope().Temps;
 			}
 			else
 			{
@@ -377,12 +393,6 @@ namespace Osprey
 
 		ASTVisitorTraversal Visit(const ASTVariableDeclarationStmt& node)
 		{
-			if (!m_context.PushVariable(VMIdentifier(node.GetIdentifier(), node.GetType())))
-			{
-				std::println("Failed to push variable declaration");
-				return ASTVisitorTraversal::Stop;
-			}
-
 			// It is guaranteed that this variable will be placed on the top of the data stack
 			// so we can just directly push its value onto the stack
 
@@ -391,6 +401,15 @@ namespace Osprey
 			{
 				return ASTVisitorTraversal::Stop;
 			}
+
+			if (!m_context.PushVariable(VMIdentifier(node.GetIdentifier(), node.GetType())))
+			{
+				std::println("Failed to push variable declaration");
+				return ASTVisitorTraversal::Stop;
+			}
+
+			// We are labelling a temporary as a variable so we need to decrement temps
+			m_context.TopScope().Temps--;
 
 			return ASTVisitorTraversal::Continue;
 		}
@@ -407,6 +426,8 @@ namespace Osprey
 
 		ASTVisitorTraversal Visit(const ASTBlock& node)
 		{
+			//const VMScopedScope scope(m_context, "block");
+
 			for (const std::unique_ptr<ASTNode>& expression_node : node.GetStatements())
 			{
 				if (expression_node->Accept(*this) == ASTVisitorTraversal::Stop)
@@ -441,6 +462,8 @@ namespace Osprey
 			m_context.EmitOpCode(VMOpCode::POP);
 			m_context.EmitOperand(1);
 
+			--m_context.TopScope().Temps;
+
 			return ASTVisitorTraversal::Continue;
 		}
 
@@ -456,6 +479,8 @@ namespace Osprey
 			m_context.EmitOpCode(VMOpCode::PUSH);
 			size_t return_address_instruction_offset = m_context.EmitOperand(0); // todo
 
+			++m_context.TopScope().Temps;
+
 			// Next we need to push all the function args onto the data stack
 			// TODO: type check the args match the parameters
 
@@ -466,9 +491,7 @@ namespace Osprey
 				{
 					return ASTVisitorTraversal::Stop;
 				}
-				++m_context.TopScope().Temporaries;
 			}
-			m_context.TopScope().Temporaries = 0;
 
 			// Push the instruction offset of the function we're calling
 			std::optional<size_t> function_instruction_offset = m_context.GetFunctionInstructionOffset(node.GetIdentifier());
@@ -483,8 +506,11 @@ namespace Osprey
 
 			// Call it!
 			m_context.EmitOpCode(VMOpCode::JMP, std::format("call '{}'", node.GetIdentifier()));
+			//--m_context.TopScope().Temps; // -- because we're eating a jump operand but ++ because we're adding a return value
 
 			m_context.UpdateOperand(return_address_instruction_offset, m_context.GetInstructions().size());
+
+			//++m_context.TopScope().Temps;
 
 			return ASTVisitorTraversal::Continue;
 		}
@@ -499,10 +525,10 @@ namespace Osprey
 
 			const VMScopedScope scope(m_context, node.GetIdentifier());
 
-			for (const auto& parameter : node.GetFunctionType().parameters)
-			{
-				m_context.PushVariable(VMIdentifier(parameter.first, parameter.second));
-			}
+			node.GetFunctionType().ForEach([&](Type type, const std::string& identifier)
+				{
+					m_context.PushVariable(VMIdentifier(identifier, type));
+				});
 
 			// TODO: need type-checking and check function ends in a return statement
 
@@ -523,15 +549,14 @@ namespace Osprey
 			// a0, a1, a2 are all this function's arguments
 			// and r is the return value
 
-			//const int32_t parameter_count = node.GetFunctionType().parameters.size();
-			const int32_t identifier_count = m_context.TopScope().GetIdentifiers().size();
-
-			const int32_t cleanup_count = identifier_count;// +parameter_count;
-
-			m_context.EmitOpCode(VMOpCode::SWAP, "cleanup function working data");
-			m_context.EmitOperand(cleanup_count, "^^");
-			m_context.EmitOpCode(VMOpCode::POP, "^^");
-			m_context.EmitOperand(cleanup_count, "^^");
+			const int32_t cleanup_count = m_context.TopScope().GetIdentifiers().size();
+			if (cleanup_count != 0)
+			{
+				m_context.EmitOpCode(VMOpCode::SWAP, "cleanup function working data");
+				m_context.EmitOperand(cleanup_count, "^^");
+				m_context.EmitOpCode(VMOpCode::POP, "^^");
+				m_context.EmitOperand(cleanup_count, "^^");
+			}
 
 			// we now need to return to the function that called us
 			// if the callee behaved themselves then they would have kindly pushed a return address onto the stack
@@ -540,6 +565,8 @@ namespace Osprey
 			m_context.EmitOpCode(VMOpCode::SWAP, "get the return address to the top of the stack");
 			m_context.EmitOperand(1, "^^");
 			m_context.EmitOpCode(VMOpCode::JMP, "return to the callee");
+
+			--m_context.TopScope().Temps;
 
 			return ASTVisitorTraversal::Continue;
 		}
@@ -556,6 +583,7 @@ namespace Osprey
 			// Call the main function
 			m_context.EmitOpCode(VMOpCode::PUSH, "function instruction offset of 'main'");
 			m_context.EmitOperand(0, "^^"); // This instruction offset gets filled in later
+
 			m_context.EmitOpCode(VMOpCode::JMP, "call 'main'");
 			m_context.EmitOpCode(VMOpCode::HALT, "exit the program");
 
