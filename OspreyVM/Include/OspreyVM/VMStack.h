@@ -12,7 +12,9 @@ namespace Osprey
 		void Push(int32_t Data);
 
 		void SetFromTop(size_t offset, int32_t value);
-		int32_t GetFromTop(size_t offset);
+		int32_t GetFromTop(size_t offset) const;
+
+		size_t GetSize() const { return Stack.size(); }
 
 		void Dump() const;
 		const std::vector<int32_t>& Get() const { return Stack; }

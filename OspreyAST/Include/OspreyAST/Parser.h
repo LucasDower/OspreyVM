@@ -4,11 +4,12 @@
 #include "OspreyAST/AST.h"
 
 #include <vector>
-#include <optional>
+#include <expected>
 
 namespace Osprey
 {
 	using TokenBuffer = std::vector<Token>;
+	using ErrorMessage = std::string;
 
-	std::optional<AST> Parse(const TokenBuffer& tokens);
+	std::expected<AST, ErrorMessage> Parse(const TokenBuffer& tokens);
 }

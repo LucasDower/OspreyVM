@@ -1,10 +1,11 @@
 #include "OspreyAST/Tokeniser.h"
 
 #include <print>
+#include <optional>
 
 namespace Osprey
 {
-	std::optional<TokenBuffer> Tokenise(const std::string script)
+	std::expected<TokenBuffer, ErrorMessage> Tokenise(const std::string script)
 	{
 		TokenBuffer tokens;
 		size_t cursor = 0;
@@ -36,6 +37,10 @@ namespace Osprey
 			switch (curr_char)
 			{
 				case ' ':
+				{
+					break;
+				}
+				case '\r':
 				{
 					break;
 				}
@@ -135,6 +140,7 @@ namespace Osprey
 							number_string += static_cast<unsigned char>(Consume());
 						}
 
+						/*
 						if (Peek() && *Peek() == 'f')
 						{
 							Consume(); // eat the 'f'
@@ -142,8 +148,9 @@ namespace Osprey
 						}
 						else
 						{
-							tokens.push_back(MakeToken(TokenType::I32, number_string));
-						}
+						*/
+						tokens.push_back(MakeToken(TokenType::I32, number_string));
+						//}
 					}
 					else if (std::isalpha(curr_char))
 					{
@@ -166,10 +173,12 @@ namespace Osprey
 						{
 							tokens.push_back(MakeToken(TokenType::I32, "i32"));
 						}
+						/*
 						else if (identifier_or_keyword == "f32")
 						{
 							tokens.push_back(MakeToken(TokenType::F32, "f32"));
 						}
+						*/
 						else if (identifier_or_keyword == "mut")
 						{
 							tokens.push_back(MakeToken(TokenType::Mutable, "mut"));
@@ -181,8 +190,32 @@ namespace Osprey
 					}
 					else
 					{
-						std::println("Failed to tokenise script: unexpected chracter '{}' ({}, {})", static_cast<char>(curr_char), line, column);
-						return std::nullopt;
+						const auto EscapeChar = [](char c) -> std::string
+							{
+								switch (c)
+								{
+									case '\n': return "\\n";
+									case '\r': return "\\r";
+									case '\t': return "\\t";
+									case '\0': return "\\0";
+									case '\'': return "\\'";
+									case '\"': return "\\\"";
+									case '\\': return "\\\\";
+									default:
+									{
+										if (std::isprint(static_cast<unsigned char>(c)))
+										{
+											return std::string(1, c);
+										}
+										else
+										{
+											return std::format("\\x{:02x}", static_cast<unsigned char>(c)); // hex for other control chars
+										}
+									}
+								}
+							};
+
+						return std::unexpected(std::format("Unexpected character '{}'", EscapeChar(static_cast<char>(curr_char)), line, column));
 					}
 				}
 			}

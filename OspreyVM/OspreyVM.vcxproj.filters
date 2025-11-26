@@ -30,7 +30,7 @@
     <ClCompile Include="Source\VM.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Main.cpp">
+    <ClCompile Include="Source\VMStackBindings.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -53,8 +53,8 @@
     <ClInclude Include="Include\OspreyVM\VM.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Source\Script.osp" />
+    <ClInclude Include="Include\OspreyVM\VMStackBindings.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

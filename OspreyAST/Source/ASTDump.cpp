@@ -1,5 +1,15 @@
 #include "OspreyAST/ASTDump.h"
 
+#include "OspreyAST/Expressions/Literal.h"
+#include "OspreyAST/Expressions/Variable.h"
+#include "OspreyAST/Expressions/UnaryOp.h"
+#include "OspreyAST/Expressions/BinaryOp.h"
+#include "OspreyAST/Expressions/FunctionCall.h"
+#include "OspreyAST/Statements/VariableDecl.h"
+#include "OspreyAST/Statements/Return.h"
+#include "OspreyAST/Statements/If.h"
+#include "OspreyAST/Statements/Block.h"
+
 #include <print>
 
 namespace Osprey
@@ -97,25 +107,14 @@ namespace Osprey
 		return ASTVisitorTraversal::Continue;
 	}
 
-	ASTVisitorTraversal ASTDump::Visit(const ASTFunctionDeclaration& node)
-	{
-		PrintIndented(std::format("function_declaration (\"{}\")", node.GetIdentifier()));
-
-		++m_indent;
-		node.GetBody()->Accept(*this);
-		--m_indent;
-
-		return ASTVisitorTraversal::Continue;
-	}
-
 	ASTVisitorTraversal ASTDump::Visit(const ASTProgram& node)
 	{
-		PrintIndented("program_declaration");
+		PrintIndented("program");
 		
 		++m_indent;
-		for (const auto& function : node.GetFunctions())
+		for (const std::unique_ptr<ASTStmt>& statement : node.GetStatements())
 		{
-			function->Accept(*this);
+			statement->Accept(*this);
 		}
 		--m_indent;
 

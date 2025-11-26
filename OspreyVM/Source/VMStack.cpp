@@ -16,7 +16,7 @@ namespace Osprey
 		Stack[Stack.size() - offset - 1] = value;
 	}
 
-	int32_t VMStack::GetFromTop(size_t offset)
+	int32_t VMStack::GetFromTop(size_t offset) const
 	{
 		return Stack[Stack.size() - offset - 1];
 	}

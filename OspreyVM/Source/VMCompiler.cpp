@@ -4,40 +4,55 @@
 #include "OspreyAST/ASTVisitor.h"
 #include "OspreyVM/VMProgram.h"
 #include "OspreyVM/VMOpCode.h"
+#include "OspreyVM/VMStackBindings.h"
+
+#include "OspreyAST/Expressions/Literal.h"
+#include "OspreyAST/Expressions/Variable.h"
+#include "OspreyAST/Expressions/UnaryOp.h"
+#include "OspreyAST/Expressions/BinaryOp.h"
+#include "OspreyAST/Expressions/FunctionCall.h"
+#include "OspreyAST/Statements/VariableDecl.h"
+#include "OspreyAST/Statements/Return.h"
+#include "OspreyAST/Statements/If.h"
+#include "OspreyAST/Statements/Block.h"
+#include "OspreyAST/Statements/Assignment.h"
 
 #include <vector>
 #include <unordered_map>
 #include <print>
 #include <cassert>
 #include <ranges>
+#include <set>
 
 namespace Osprey
 {
 	int32_t TempIndex = 0;
 
-	class VMIdentifier
-	{
-	public:
-		VMIdentifier(std::string identifier, Type type)
-			: m_identifier(std::move(identifier))
-			, m_type(type)
-		{
-		}
-
-		const std::string& GetIdentifier() const { return m_identifier; }
-
-	private:
-		std::string m_identifier;
-		Type m_type;
-	};
-
 	class VMScopeStack
 	{
 	public:
-		VMScopeStack(std::string debug_label, int32_t offset_from_bottom)
-			: m_debug_label(debug_label)
-			, m_offset_from_bottom(offset_from_bottom)
+		VMScopeStack(int32_t offset_from_bottom)
+			: m_offset_from_bottom(offset_from_bottom)
 		{
+		}
+
+		void ApplyScopeSizeDelta(int32_t delta)
+		{
+			if (delta > 0)
+			{
+				for (int32_t i = 0; i < delta; ++i)
+				{
+					m_bindings.push_back(std::nullopt);
+				}
+			}
+			else if (delta < 0)
+			{
+				assert(-delta <= m_bindings.size());
+				for (int32_t i = 0; i < delta; ++i)
+				{
+					m_bindings.pop_back();
+				}
+			}
 		}
 
 		int32_t GetOffsetFromBottom() const
@@ -47,212 +62,157 @@ namespace Osprey
 
 		int32_t GetCurrentSize() const
 		{
-			return m_identifiers.size() + Temps;
+			return m_bindings.size();
 		}
 
-		int32_t Temps = 0;
-
-		const std::string& GetDebugLabel() const { return m_debug_label; }
-
-		bool PushVariable(VMIdentifier identifier)
+		bool BindValueToVariable(std::string identifier)
 		{
-			if (HasVariable(identifier.GetIdentifier()))
+			if (HasVariable(identifier))
 			{
 				return false;
 			}
-			else
+
+			if (m_bindings.size() == 0)
 			{
-				m_identifiers.push_back(identifier);
-				return true;
+				return false;
 			}
+
+			if (m_bindings.back()->contains(identifier))
+			{
+				return false;
+			}
+
+			m_bindings.back()->insert(identifier);
+			return true;
 		}
 
 		bool HasVariable(const std::string& identifier) const
 		{
-			for (const VMIdentifier& existing_identifier : m_identifiers)
+			for (const std::optional<std::set<std::string>>& binding : m_bindings)
 			{
-				if (existing_identifier.GetIdentifier() == identifier)
+				if (binding.has_value())
 				{
-					return true;
+					if (binding->contains(identifier))
+					{
+						return true;
+					}
 				}
 			}
 
 			return false;
 		}
 
-		bool PushFunction(std::string function, size_t instruction_offset)
-		{
-			if (HasFunction(function))
-			{
-				return false;
-			}
-			else
-			{
-				m_functions.push_back({ std::move(function), instruction_offset });
-				return true;
-			}
-		}
-
-		bool HasFunction(const std::string& function)
-		{
-			for (const std::pair<std::string, size_t>& existing_function : m_functions)
-			{
-				if (existing_function.first == function)
-				{
-					return true;
-				}
-			}
-
-			return false;
-		}
-
-		const std::vector<VMIdentifier>& GetIdentifiers() const { return m_identifiers; }
-		const std::vector<std::pair<std::string, size_t>>& GetFunctions() const { return m_functions; }
+		//const std::vector<std::string>& GetIdentifiers() const { return m_identifiers; }
 
 	private:
+		std::vector<std::optional<std::set<std::string>>> m_bindings;
 		int32_t m_offset_from_bottom = 0;
-		std::string m_debug_label;
-		std::vector<VMIdentifier> m_identifiers;
-		std::vector<std::pair<std::string, size_t>> m_functions;
+	};
+
+	struct VMInstructionHandle
+	{
+		int32_t opcode_offset = 0;
+		std::optional<int32_t> operand_offset;
+	};
+
+	class VMInstruction
+	{
+	public:
+		static VMInstruction PUSH(int32_t value)
+		{
+			return VMInstruction(VMOpCode::PUSH, value, 1);
+		}
+
+		static VMInstruction DUP(int32_t offset)
+		{
+			return VMInstruction(VMOpCode::DUP, offset, 1);
+		}
+
+		static VMInstruction NOT()
+		{
+			return VMInstruction(VMOpCode::DUP, std::nullopt, 0);
+		}
+
+		static VMInstruction NEGATE()
+		{
+			return VMInstruction(VMOpCode::DUP, std::nullopt, 0);
+		}
+
+		static VMInstruction ADD()
+		{
+			return VMInstruction(VMOpCode::ADD, std::nullopt, -1);
+		}
+
+		static VMInstruction MUL()
+		{
+			return VMInstruction(VMOpCode::MUL, std::nullopt, -1);
+		}
+
+		static VMInstruction SWAP(int32_t offset)
+		{
+			return VMInstruction(VMOpCode::SWAP, offset, 0);
+		}
+
+		static VMInstruction POP(int32_t count)
+		{
+			return VMInstruction(VMOpCode::POP, count, -count);
+		}
+
+		static VMInstruction JMP()
+		{
+			return VMInstruction(VMOpCode::JMP, std::nullopt, -1);
+		}
+
+		static VMInstruction HALT()
+		{
+			return VMInstruction(VMOpCode::HALT, std::nullopt, 0);
+		}
+
+		VMOpCode GetOpcode() const { return m_opcode; }
+		std::optional<int32_t> GetOperand() const { return m_operand; }
+		int32_t GetScopeSizeDelta() const { return m_scope_size_delta; }
+
+	private:
+		VMInstruction(VMOpCode opcode, std::optional<int32_t> operand, int32_t scope_size_delta)
+			: m_opcode(opcode)
+			, m_operand(operand)
+			, m_scope_size_delta(scope_size_delta)
+		{
+		}
+
+		VMOpCode m_opcode;
+		std::optional<int32_t> m_operand;
+		int32_t m_scope_size_delta;
 	};
 
 	class VMCompileContext
 	{
 	public:
-		void PushScope(std::string debug_label)
+		size_t GetNextInstructionOffset() const
 		{
-			int32_t offset_from_bottom = 0;
-			if (!scopes.empty())
+			return instructions.size();
+		}
+
+		VMInstructionHandle EmitInstruction(VMInstruction instruction)
+		{
+			VMInstructionHandle handle;
+
+			handle.opcode_offset = EmitOpCode(instruction.GetOpcode());
+
+			const std::optional<int32_t> operand = instruction.GetOperand();
+			if (operand.has_value())
 			{
-				offset_from_bottom += scopes.back().GetCurrentSize() + scopes.back().GetOffsetFromBottom();
-			}
-			scopes.emplace_back(debug_label, offset_from_bottom);
-		}
-
-		const VMScopeStack& TopScope() const { return scopes.back(); }
-		VMScopeStack& TopScope() { return scopes.back(); }
-
-		void PopScope()
-		{
-			scopes.pop_back();
-		}
-
-		bool PushFunction(std::string identifier)
-		{
-			return scopes.back().PushFunction(identifier, instructions.size());
-		}
-
-		bool HasFunction(std::string identifier)
-		{
-			for (const VMScopeStack& scope : scopes)
-			{
-				if (scope.HasVariable(identifier))
-				{
-					return true;
-				}
+				handle.operand_offset = static_cast<int32_t>(EmitOperand(*operand));
 			}
 
-			return false;
+			m_stack_bindings.ApplyOffset(instruction.GetScopeSizeDelta());
+
+			return handle;
 		}
 
-		std::optional<size_t> GetFunctionInstructionOffset(std::string identifier)
-		{
-			for (const VMScopeStack& scope : scopes)
-			{
-				for (const std::pair<std::string, size_t>& some_function : scope.GetFunctions())
-				{
-					if (some_function.first == identifier)
-					{
-						return some_function.second;
-					}
-				}
-			}
-
-			return std::nullopt;
-		}
-
-		std::optional<size_t> GetVariableStackOffsetFromBottom(std::string identifier)
-		{
-			for (const VMScopeStack& scope : scopes)
-			{
-				for (int32_t scope_offset = 0; scope_offset < scope.GetIdentifiers().size(); ++scope_offset)
-				{
-					const VMIdentifier& some_identifier = scope.GetIdentifiers()[scope_offset];
-
-					if (some_identifier.GetIdentifier() == identifier)
-					{
-						return scope.GetOffsetFromBottom() + scope_offset;
-					}
-				}
-			}
-
-			return std::nullopt;
-		}
-
-		size_t GetVariableStackSize()
-		{
-			return scopes.back().GetOffsetFromBottom() + scopes.back().GetCurrentSize();
-		}
-
-		std::optional<size_t> GetVariableStackOffsetFromTop(std::string identifier)
-		{
-			std::optional<size_t> offset_from_bottom = GetVariableStackOffsetFromBottom(identifier);
-			if (!offset_from_bottom)
-			{
-				return std::nullopt;
-			}
-			return GetVariableStackSize() - 1 - *offset_from_bottom;
-		}
-
-		bool PushVariable(VMIdentifier identifier)
-		{
-			if (HasVariable(identifier.GetIdentifier()))
-			{
-				return false;
-			}
-			else
-			{
-				assert(scopes.back().PushVariable(identifier));
-				return true;
-			}
-		}
-
-		bool HasVariable(std::string identifier)
-		{
-			for (const VMScopeStack& scope : scopes)
-			{
-				if (scope.HasVariable(identifier))
-				{
-					return true;
-				}
-			}
-
-			return false;
-		}
-
-		void EmitOpCode(VMOpCode op_code, std::string debug_message = "")
-		{
-			instructions.push_back(static_cast<int32_t>(op_code));
-			debug_message = debug_message == "" ? (OpCodeToString(op_code)) : (OpCodeToString(op_code) + " (" + debug_message + ")");
-			debug_message += " [" + scopes.back().GetDebugLabel() + "]";
-			debug_instructions.push_back(debug_message);
-		}
-
-		size_t EmitOperand(int32_t operand, std::string debug_message = "")
-		{
-			instructions.push_back(operand);
-			debug_message = debug_message == "" ? (std::to_string(operand)) : (std::to_string(operand) + " (" + debug_message + ")");
-			debug_message += " [" + scopes.back().GetDebugLabel() + "]";
-			debug_instructions.push_back(debug_message);
-			return instructions.size() - 1;
-		}
-
-		void UpdateOperand(size_t offset, int32_t operand, std::string debug_message = "")
+		void UpdateOperand(size_t offset, int32_t operand)
 		{
 			instructions[offset] = operand;
-			debug_message = debug_message == "" ? (std::to_string(operand)) : (std::to_string(operand) + " (" + debug_message + ")");
-			debug_message += " [" + scopes.back().GetDebugLabel() + "]";
-			debug_instructions[offset] = debug_message;
 		}
 
 		const std::vector<int32_t>& GetInstructions()
@@ -260,40 +220,27 @@ namespace Osprey
 			return instructions;
 		}
 
-		const std::vector<std::string>& GetDebugInstructions()
-		{
-			return debug_instructions;
-		}
+		VMStackBindings& GetStackBindings() { return m_stack_bindings; }
 
 	private:
+		size_t EmitOpCode(VMOpCode op_code)
+		{
+			instructions.push_back(static_cast<int32_t>(op_code));
+			return instructions.size() - 1;
+		}
+
+		size_t EmitOperand(int32_t operand)
+		{
+			instructions.push_back(operand);
+			return instructions.size() - 1;
+		}
+
+
+	private:
+		VMStackBindings m_stack_bindings;
 		std::vector<int32_t> instructions;
-		std::vector<std::string> debug_instructions;
 		std::vector<VMScopeStack> scopes; // <- this should be a linear array where each identifier has a numeric scope
 		int32_t static_data_size = 0;
-	};
-
-	class VMScopedScope
-	{
-	public:
-		VMScopedScope(VMCompileContext& context, std::string debug_label)
-			: m_context(context)
-		{
-			m_context.PushScope(debug_label);
-		}
-
-		~VMScopedScope()
-		{
-			m_context.PopScope();
-		}
-
-		VMScopedScope(const VMScopedScope&) = delete;
-		VMScopedScope& operator=(const VMScopedScope&) = delete;
-
-		VMScopedScope(VMScopedScope&&) = delete;
-		VMScopedScope& operator=(VMScopedScope&&) = delete;
-
-	private:
-		VMCompileContext& m_context;
 	};
 
 	class VMCompiler : public ASTVisitor
@@ -307,28 +254,21 @@ namespace Osprey
 	private:
 		ASTVisitorTraversal Visit(const ASTLiteral& node)
 		{
-			const std::string dbg_message = std::format("{} literal = {}", node.GetType().ToString(), node.GetValue());
-			m_context.EmitOpCode(VMOpCode::PUSH, dbg_message);
-			m_context.EmitOperand(node.GetValue(), dbg_message);
-
-			++m_context.TopScope().Temps;
+			m_context.EmitInstruction(VMInstruction::PUSH(node.GetValue()));
 
 			return ASTVisitorTraversal::Continue;
 		}
 
 		ASTVisitorTraversal Visit(const ASTVariable& node)
 		{
-			const std::optional<size_t> top_offset = m_context.GetVariableStackOffsetFromTop(node.GetIdentifier());
+			const std::optional<int32_t> top_offset = m_context.GetStackBindings().GetBindingOffsetFromTop(node.GetIdentifier());
 			if (!top_offset)
 			{
 				std::println("Variable '{}' does not exist", node.GetIdentifier());
 				return ASTVisitorTraversal::Stop;
 			}
 
-			m_context.EmitOpCode(VMOpCode::DUP);
-			m_context.EmitOperand(*top_offset);
-
-			++m_context.TopScope().Temps;
+			m_context.EmitInstruction(VMInstruction::DUP(*top_offset));
 
 			return ASTVisitorTraversal::Continue;
 		}
@@ -344,18 +284,22 @@ namespace Osprey
 			{
 				case UnaryOperator::Exclamation:
 				{
-					m_context.EmitOpCode(VMOpCode::NOT);
+					m_context.EmitInstruction(VMInstruction::NOT());
 					break;
 				}
 				case UnaryOperator::Minus:
 				{
-					m_context.EmitOpCode(VMOpCode::NEGATE);
+					m_context.EmitInstruction(VMInstruction::NEGATE());
 					break;
+				}
+				default:
+				{
+					std::println("Unknown unary operator");
+					return ASTVisitorTraversal::Stop;
 				}
 			}
 
-			std::println("Unknown unary operator");
-			return ASTVisitorTraversal::Stop;
+			return ASTVisitorTraversal::Continue;
 		}
 		
 		ASTVisitorTraversal Visit(const ASTBinaryExpr& node)
@@ -372,15 +316,11 @@ namespace Osprey
 
 			if (node.GetOperator() == BinaryOperator::Plus)
 			{
-				m_context.EmitOpCode(VMOpCode::ADD);
-
-				--m_context.TopScope().Temps;
+				m_context.EmitInstruction(VMInstruction::ADD());
 			}
 			else if (node.GetOperator() == BinaryOperator::Asterisk)
 			{
-				m_context.EmitOpCode(VMOpCode::MUL);
-
-				--m_context.TopScope().Temps;
+				m_context.EmitInstruction(VMInstruction::MUL());
 			}
 			else
 			{
@@ -393,23 +333,16 @@ namespace Osprey
 
 		ASTVisitorTraversal Visit(const ASTVariableDeclarationStmt& node)
 		{
-			// It is guaranteed that this variable will be placed on the top of the data stack
-			// so we can just directly push its value onto the stack
-
-			// This expression will have ended in a value being pushed onto the stack
 			if (node.GetExpressionNode()->Accept(*this) == ASTVisitorTraversal::Stop)
 			{
 				return ASTVisitorTraversal::Stop;
 			}
 
-			if (!m_context.PushVariable(VMIdentifier(node.GetIdentifier(), node.GetType())))
+			if (!m_context.GetStackBindings().BindToVariable(node.GetIdentifier()))
 			{
 				std::println("Failed to push variable declaration");
 				return ASTVisitorTraversal::Stop;
 			}
-
-			// We are labelling a temporary as a variable so we need to decrement temps
-			m_context.TopScope().Temps--;
 
 			return ASTVisitorTraversal::Continue;
 		}
@@ -426,11 +359,9 @@ namespace Osprey
 
 		ASTVisitorTraversal Visit(const ASTBlock& node)
 		{
-			//const VMScopedScope scope(m_context, "block");
-
-			for (const std::unique_ptr<ASTNode>& expression_node : node.GetStatements())
+			for (const std::unique_ptr<ASTStmt>& statement : node.GetStatements())
 			{
-				if (expression_node->Accept(*this) == ASTVisitorTraversal::Stop)
+				if (statement->Accept(*this) == ASTVisitorTraversal::Stop)
 				{
 					return ASTVisitorTraversal::Stop;
 				}
@@ -441,7 +372,7 @@ namespace Osprey
 
 		ASTVisitorTraversal Visit(const ASTAssignmentStmt& node)
 		{
-			std::optional<size_t> top_offset = m_context.GetVariableStackOffsetFromTop(node.GetIdentifier());
+			std::optional<size_t> top_offset = m_context.GetStackBindings().GetBindingOffsetFromTop(node.GetIdentifier());
 			if (!top_offset)
 			{
 				std::println("Trying to assign to a variable that doesn't exist", node.GetIdentifier());
@@ -457,12 +388,8 @@ namespace Osprey
 			// The data stack should look like this
 			// (BOTTOM) [ _, _, _, k, _, a0, a1, a2, e ] (TOP)
 			// where k is the old value we want to assign and e is its new value
-			m_context.EmitOpCode(VMOpCode::SWAP);
-			m_context.EmitOperand(*top_offset + 1);
-			m_context.EmitOpCode(VMOpCode::POP);
-			m_context.EmitOperand(1);
-
-			--m_context.TopScope().Temps;
+			m_context.EmitInstruction(VMInstruction::SWAP(*top_offset + 1));
+			m_context.EmitInstruction(VMInstruction::POP(1));
 
 			return ASTVisitorTraversal::Continue;
 		}
@@ -475,11 +402,12 @@ namespace Osprey
 
 		ASTVisitorTraversal Visit(const class ASTFunctionCall& node)
 		{
-			// Before we call a function, we need to push the address of the instruction we want to continue at once the function returns
-			m_context.EmitOpCode(VMOpCode::PUSH);
-			size_t return_address_instruction_offset = m_context.EmitOperand(0); // todo
+			std::println("Function calls not supported by the VM compiler");
+			return ASTVisitorTraversal::Stop;
 
-			++m_context.TopScope().Temps;
+			/*
+			// Before we call a function, we need to push the address of the instruction we want to continue at once the function returns
+			const VMInstructionHandle return_address_handle = m_context.EmitInstruction(VMInstruction::PUSH(0));
 
 			// Next we need to push all the function args onto the data stack
 			// TODO: type check the args match the parameters
@@ -501,110 +429,53 @@ namespace Osprey
 				return ASTVisitorTraversal::Stop;
 			}
 
-			m_context.EmitOpCode(VMOpCode::PUSH, std::format("push function instruction offset of '{}'", node.GetIdentifier()));
-			m_context.EmitOperand(*function_instruction_offset, "^^");
+			m_context.EmitInstruction(VMInstruction::PUSH(*function_instruction_offset));
 
 			// Call it!
-			m_context.EmitOpCode(VMOpCode::JMP, std::format("call '{}'", node.GetIdentifier()));
-			//--m_context.TopScope().Temps; // -- because we're eating a jump operand but ++ because we're adding a return value
+			m_context.EmitInstruction(VMInstruction::JMP());
 
-			m_context.UpdateOperand(return_address_instruction_offset, m_context.GetInstructions().size());
-
-			//++m_context.TopScope().Temps;
+			assert(return_address_handle.operand_offset.has_value());
+			m_context.UpdateOperand(*return_address_handle.operand_offset, m_context.GetNextInstructionOffset());
 
 			return ASTVisitorTraversal::Continue;
-		}
-
-		ASTVisitorTraversal Visit(const class ASTFunctionDeclaration& node)
-		{
-			if (!m_context.PushFunction(node.GetIdentifier()))
-			{
-				std::println("Failed to compile function '{}': could not register function, does it already exist?", node.GetIdentifier());
-				return ASTVisitorTraversal::Stop;
-			}
-
-			const VMScopedScope scope(m_context, node.GetIdentifier());
-
-			node.GetFunctionType().ForEach([&](Type type, const std::string& identifier)
-				{
-					m_context.PushVariable(VMIdentifier(identifier, type));
-				});
-
-			// TODO: need type-checking and check function ends in a return statement
-
-			if (node.GetBody()->Accept(*this) == ASTVisitorTraversal::Stop)
-			{
-				return ASTVisitorTraversal::Stop;
-			}
-
-			// we should now have the return type of the function on the top of the stack
-			// TODO: the type-checker actually needs to verify this
-
-			// we should also still have all this function's arguments on the stack just below this
-			// (as long as the function body has behaved itself)
-			// let's get rid of those and keep the blocks return value
-
-			// e.g:   [ X, Y, Z, a0, a1, a2, r ] -> [ X, Y, Z, r ]
-			// where X, Y, Z is some data on the stack we have no idea about
-			// a0, a1, a2 are all this function's arguments
-			// and r is the return value
-
-			const int32_t cleanup_count = m_context.TopScope().GetIdentifiers().size();
-			if (cleanup_count != 0)
-			{
-				m_context.EmitOpCode(VMOpCode::SWAP, "cleanup function working data");
-				m_context.EmitOperand(cleanup_count, "^^");
-				m_context.EmitOpCode(VMOpCode::POP, "^^");
-				m_context.EmitOperand(cleanup_count, "^^");
-			}
-
-			// we now need to return to the function that called us
-			// if the callee behaved themselves then they would have kindly pushed a return address onto the stack
-			// (which should be 'Z' in the diagram above)
-			// let's go there!
-			m_context.EmitOpCode(VMOpCode::SWAP, "get the return address to the top of the stack");
-			m_context.EmitOperand(1, "^^");
-			m_context.EmitOpCode(VMOpCode::JMP, "return to the callee");
-
-			--m_context.TopScope().Temps;
-
-			return ASTVisitorTraversal::Continue;
+			*/
 		}
 		
 		ASTVisitorTraversal Visit(const class ASTProgram& Node)
 		{
-			const VMScopedScope global_scope(m_context, "entry");
+			m_context.GetStackBindings().EnterBlock();
 
 			// Push the return address to continue from once the main function has been executed
 			// It is always instruction 5 (HALT)
-			m_context.EmitOpCode(VMOpCode::PUSH, "return address after calling 'main'");
-			m_context.EmitOperand(5, "^^");
+			m_context.EmitInstruction(VMInstruction::PUSH(5));
 
 			// Call the main function
-			m_context.EmitOpCode(VMOpCode::PUSH, "function instruction offset of 'main'");
-			m_context.EmitOperand(0, "^^"); // This instruction offset gets filled in later
+			const VMInstructionHandle main_function_offset_handle = m_context.EmitInstruction(VMInstruction::PUSH(0));
 
-			m_context.EmitOpCode(VMOpCode::JMP, "call 'main'");
-			m_context.EmitOpCode(VMOpCode::HALT, "exit the program");
+			m_context.EmitInstruction(VMInstruction::JMP());
+			m_context.EmitInstruction(VMInstruction::HALT());
 
-			// Generate instructions for all functions
-			for (const std::unique_ptr<ASTFunctionDeclaration>& function : Node.GetFunctions())
+			// Generate instructions for all statements
+			for (const std::unique_ptr<ASTStmt>& statement : Node.GetStatements())
 			{
-				if (function->Accept(*this) == ASTVisitorTraversal::Stop)
+				if (statement->Accept(*this) == ASTVisitorTraversal::Stop)
 				{
 					return ASTVisitorTraversal::Stop;
 				}
 			}
 
-			std::optional<size_t> entry_instruction_offset = m_context.GetFunctionInstructionOffset("main");
+			std::optional<size_t> entry_instruction_offset; // = m_context.GetFunctionInstructionOffset("main");
 			if (!entry_instruction_offset)
 			{
 				std::println("Failed to compile program: no 'main' function");
 				return ASTVisitorTraversal::Stop;
 			}
 
-			m_context.UpdateOperand(3, static_cast<int32_t>(*entry_instruction_offset), "^^");
+			assert(main_function_offset_handle.operand_offset.has_value());
+			m_context.UpdateOperand(*main_function_offset_handle.operand_offset, static_cast<int32_t>(*entry_instruction_offset));
 				
+			m_context.GetStackBindings().ExitBlock();
+
 			return ASTVisitorTraversal::Continue;
 		}
 
@@ -625,14 +496,6 @@ namespace Osprey
 		}
 
 		VMCompileContext context = compiler.GetContext();
-
-		const auto& instructions = context.GetInstructions();
-		const auto& debug_instructions = context.GetDebugInstructions();
-		for (size_t instruction_idx = 0; instruction_idx < instructions.size(); ++instruction_idx)
-		{
-			std::string msg = debug_instructions[instruction_idx];
-			std::println("{}: {}", instruction_idx, msg);
-		}
 
 		VMProgram program(context.GetInstructions());
 

@@ -18,51 +18,11 @@
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="Include\OspreyAST\AST.h" />
-    <ClInclude Include="Include\OspreyAST\ASTDump.h" />
-    <ClInclude Include="Include\OspreyAST\ASTVisitor.h" />
-    <ClInclude Include="Include\OspreyAST\BinaryOperator.h" />
-    <ClInclude Include="Include\OspreyAST\Expressions\BinaryOp.h" />
-    <ClInclude Include="Include\OspreyAST\Expressions\FunctionCall.h" />
-    <ClInclude Include="Include\OspreyAST\Expressions\FunctionExpression.h" />
-    <ClInclude Include="Include\OspreyAST\Expressions\UnaryOp.h" />
-    <ClInclude Include="Include\OspreyAST\Expressions\Variable.h" />
-    <ClInclude Include="Include\OspreyAST\Parser.h" />
-    <ClInclude Include="Include\OspreyAST\Statements\Assignment.h" />
-    <ClInclude Include="Include\OspreyAST\Statements\Block.h" />
-    <ClInclude Include="Include\OspreyAST\Statements\Expression.h" />
-    <ClInclude Include="Include\OspreyAST\Statements\FunctionDecl.h" />
-    <ClInclude Include="Include\OspreyAST\Statements\If.h" />
-    <ClInclude Include="Include\OspreyAST\Statements\Return.h" />
-    <ClInclude Include="Include\OspreyAST\Statements\VariableDecl.h" />
-    <ClInclude Include="Include\OspreyAST\Token.h" />
-    <ClInclude Include="Include\OspreyAST\Tokeniser.h" />
-    <ClInclude Include="Include\OspreyAST\Types.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="Include\OspreyAST\Expressions\Literal.h" />
-    <ClCompile Include="Source\AST.cpp" />
-    <ClCompile Include="Source\ASTDump.cpp" />
-    <ClCompile Include="Source\Expressions\BinaryOp.cpp" />
-    <ClCompile Include="Source\Expressions\FunctionCall.cpp" />
-    <ClCompile Include="Source\Expressions\Literal.cpp" />
-    <ClCompile Include="Source\Expressions\UnaryOp.cpp" />
-    <ClCompile Include="Source\Expressions\Variable.cpp" />
-    <ClCompile Include="Source\Parser.cpp" />
-    <ClCompile Include="Source\Statements\Assignment.cpp" />
-    <ClCompile Include="Source\Statements\Block.cpp" />
-    <ClCompile Include="Source\Statements\If.cpp" />
-    <ClCompile Include="Source\Statements\Return.cpp" />
-    <ClCompile Include="Source\Statements\VariableDecl.cpp" />
-    <ClCompile Include="Source\Tokeniser.cpp" />
-    <ClCompile Include="Source\Types.cpp" />
-  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{4928167f-c3fb-47ef-8104-a9c6c7d86ea7}</ProjectGuid>
-    <RootNamespace>OspreyAST</RootNamespace>
+    <ProjectGuid>{a82fe52e-eec4-4376-aeb5-f840f75f8f52}</ProjectGuid>
+    <RootNamespace>Sandbox</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -80,13 +40,13 @@
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
@@ -151,11 +111,12 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp23</LanguageStandard>
-      <AdditionalIncludeDirectories>$(SolutionDir)$(ProjectName)\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)OspreyAST\Include;$(SolutionDir)OspreyVM\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>$(SolutionDir)OspreyAST\Build\$(Platform)\$(Configuration)\OspreyAST.lib;$(SolutionDir)OspreyVM\Build\$(Platform)\$(Configuration)\OspreyVM.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -167,13 +128,20 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp23</LanguageStandard>
-      <AdditionalIncludeDirectories>$(SolutionDir)$(ProjectName)\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)OspreyAST\Include;$(SolutionDir)OspreyVM\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>$(SolutionDir)OspreyAST\Build\$(Platform)\$(Configuration)\OspreyAST.lib;$(SolutionDir)OspreyVM\Build\$(Platform)\$(Configuration)\OspreyVM.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="Main.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Script.osp" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

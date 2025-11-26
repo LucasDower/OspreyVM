@@ -3,11 +3,12 @@
 #include "OspreyAST/Token.h"
 
 #include <vector>
-#include <optional>
+#include <expected>
 
 namespace Osprey
 {
 	using TokenBuffer = std::vector<Token>;
+	using ErrorMessage = std::string;
 
-	std::optional<TokenBuffer> Tokenise(const std::string in_script);
+	std::expected<TokenBuffer, ErrorMessage> Tokenise(const std::string in_script);
 }

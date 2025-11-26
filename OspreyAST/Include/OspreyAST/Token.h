@@ -23,7 +23,6 @@ namespace Osprey
 		LeftCurly,
 		RightCurly,
 		I32,
-		F32,
 		Exclamation,
 		Minus,
 		Lt,
