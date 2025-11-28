@@ -44,6 +44,11 @@ namespace Osprey
 		return size;
 	}
 
+	int32_t VMStackBindings::GetTopStackSize() const
+	{
+		return m_block_sizes.back();
+	}
+
 	bool VMStackBindings::BindToVariable(std::string variable)
 	{
 		for (const Binding& binding : m_bindings)

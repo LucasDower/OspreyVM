@@ -11,7 +11,7 @@ namespace Osprey
 		size_t cursor = 0;
 		const size_t script_size = script.size();
 		size_t column = 0;
-		size_t line = 0;
+		size_t line = 1;
 
 		const auto Consume = [&]() -> uint8_t
 			{

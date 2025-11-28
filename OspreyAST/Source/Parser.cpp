@@ -364,8 +364,8 @@ namespace Osprey
 		return left_expr;
 	}
 
-	// equality_expr := relational_expr '==' relational_expr
-	//                | relational_expr '!=' relational_expr
+	// equality_expr := relational_expr ('==' relational_expr)*
+	//                | relational_expr ('!=' relational_expr)*
 	ParseResultPtr<ASTExpr> ParseEqualityExpr(TokenReader& reader)
 	{
 		ParseResultPtr<ASTExpr> left_expr = ParseRelationalExpr(reader);
@@ -386,10 +386,10 @@ namespace Osprey
 		}
 		else
 		{
-			return std::unexpected("Expected '==' or '!=' when parsing equality expression");
+			return std::move(*left_expr);
 		}
 
-		ParseResultPtr<ASTExpr> right_expr = ParseMultiplicativeExpr(reader);
+		ParseResultPtr<ASTExpr> right_expr = ParseRelationalExpr(reader);
 		if (!right_expr)
 		{
 			return std::unexpected(right_expr.error());
@@ -508,7 +508,7 @@ namespace Osprey
 	}
 
 	// parameter_list := identifier ":" type ("," identifier ":" type)*
-	ParseResult<std::vector<std::pair<std::string, Type>>> ParseParameterList(TokenReader& reader)
+	ParseResult<ParameterList> ParseParameterList(TokenReader& reader)
 	{
 		return std::unexpected("Parsing parameter list is not implemented");
 	}
@@ -517,13 +517,75 @@ namespace Osprey
 	//                | "(" parameter_list? ")" "->" type block
 	ParseResultPtr<ASTFunctionExpr> ParseFunctionExpression(TokenReader& reader)
 	{
-		return std::unexpected("Parsing function expression is not implemented");
+		if (!reader.MatchConsume(TokenType::LeftParen))
+		{
+			return std::unexpected("Expected '(' when parsing function declaration statement");
+		}
+
+		ParameterList parameter_list;
+
+		if (!reader.MatchConsume(TokenType::RightParen))
+		{
+			ParseResult<ParameterList> parsed_parameter_list = ParseParameterList(reader);
+			if (!parsed_parameter_list)
+			{
+				return std::unexpected(parsed_parameter_list.error());
+			}
+
+			parameter_list = *parsed_parameter_list;
+
+			if (!reader.MatchConsume(TokenType::RightParen))
+			{
+				return std::unexpected("Expected ')' when parsing function declaration statement");
+			}
+		}
+
+		if (!reader.MatchConsume(TokenType::RightArrow))
+		{
+			return std::unexpected("Expected '->' when parsing function declaration statement");
+		}
+
+		ParseResult<Type> return_type = ParseType(reader);
+		if (!return_type)
+		{
+			return std::unexpected(return_type.error());
+		}
+
+		ParseResultPtr<ASTBlock> body = ParseBlock(reader);
+		if (!body)
+		{
+			return std::unexpected(body.error());
+		}
+
+		return std::make_unique<ASTFunctionExpr>(std::move(parameter_list), *return_type, std::move(*body));
 	}
 
-	// function_declaration_statement := identifier ":" function_expr
+	// function_declaration_statement := identifier ":" "=" function_expr
 	ParseResultPtr<ASTFunctionDeclarationStmt> ParseFunctionDeclarationStatement(TokenReader& reader)
 	{
-		return std::unexpected("Parsing function declaration statement is not implemented");
+		std::optional<Token> identifier = reader.MatchConsume(TokenType::Identifier);
+		if (!identifier)
+		{
+			return std::unexpected("Expected identifier when parsing function declaration statement");
+		}
+
+		if (!reader.MatchConsume(TokenType::Colon))
+		{
+			return std::unexpected("Expected ':' when parsing function declaration statement");
+		}
+
+		if (!reader.MatchConsume(TokenType::Assign))
+		{
+			return std::unexpected("Expected '=' when parsing function declaration statement");
+		}
+
+		ParseResultPtr<ASTFunctionExpr> function_expression = ParseFunctionExpression(reader);
+		if (!function_expression)
+		{
+			return std::unexpected(function_expression.error());
+		}
+
+		return std::make_unique<ASTFunctionDeclarationStmt>(identifier->lexeme, std::move(*function_expression));
 	}
 
 	// assignment_statement := identifier "=" expr ";"
@@ -649,7 +711,7 @@ namespace Osprey
 		{
 			if (reader.MatchPeek(TokenType::Colon, 1))
 			{
-				if (reader.MatchPeek(TokenType::LeftParen, 2))
+				if (reader.MatchPeek(TokenType::Assign, 2))
 				{
 					return ParseFunctionDeclarationStatement(reader);
 				}

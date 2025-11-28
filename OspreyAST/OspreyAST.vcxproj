@@ -46,12 +46,14 @@
     <ClCompile Include="Source\ASTDump.cpp" />
     <ClCompile Include="Source\Expressions\BinaryOp.cpp" />
     <ClCompile Include="Source\Expressions\FunctionCall.cpp" />
+    <ClCompile Include="Source\Expressions\FunctionExpression.cpp" />
     <ClCompile Include="Source\Expressions\Literal.cpp" />
     <ClCompile Include="Source\Expressions\UnaryOp.cpp" />
     <ClCompile Include="Source\Expressions\Variable.cpp" />
     <ClCompile Include="Source\Parser.cpp" />
     <ClCompile Include="Source\Statements\Assignment.cpp" />
     <ClCompile Include="Source\Statements\Block.cpp" />
+    <ClCompile Include="Source\Statements\FunctionDecl.cpp" />
     <ClCompile Include="Source\Statements\If.cpp" />
     <ClCompile Include="Source\Statements\Return.cpp" />
     <ClCompile Include="Source\Statements\VariableDecl.cpp" />

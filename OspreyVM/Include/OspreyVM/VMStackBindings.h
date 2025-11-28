@@ -15,7 +15,9 @@ namespace Osprey
 		void ApplyOffset(int32_t delta);
 
 		bool BindToVariable(std::string variable);
+
 		int32_t GetStackSize() const;
+		int32_t GetTopStackSize() const;
 
 		std::optional<int32_t> GetBindingOffsetFromTop(std::string_view variable) const;
 

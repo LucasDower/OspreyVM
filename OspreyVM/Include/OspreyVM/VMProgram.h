@@ -11,6 +11,8 @@ namespace Osprey
 
 		int32_t GetInstruction(size_t offset);
 
+		void Dump() const;
+
 	private:
 		std::vector<int32_t> m_program;
 	};

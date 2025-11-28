@@ -20,8 +20,9 @@ namespace Osprey
 		ASTVisitorTraversal Visit(const class ASTAssignmentStmt& node);
 		ASTVisitorTraversal Visit(const class ASTIfStmt& node);
 		ASTVisitorTraversal Visit(const class ASTFunctionCall& node);
-		ASTVisitorTraversal Visit(const class ASTFunctionDeclaration& node);
+		ASTVisitorTraversal Visit(const class ASTFunctionDeclarationStmt& node);
 		ASTVisitorTraversal Visit(const class ASTProgram& Node);
+		ASTVisitorTraversal Visit(const class ASTFunctionExpr& Node);
 
 	private:
 		void PrintIndented(std::string message);

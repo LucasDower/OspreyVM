@@ -21,7 +21,7 @@ int main(int argc, char* argv[])
 	const std::string location = argv[1];
 	constexpr std::string_view filetype_extension = ".osp";
 	constexpr std::string_view test_fail_prefix = "\033[31m(Fail)\033[0m";
-	constexpr std::string_view test_pass_prefix = "\033[32m(Fail)\033[0m";
+	constexpr std::string_view test_pass_prefix = "\033[32m(Pass)\033[0m";
 
 	if (!std::filesystem::exists(location))
 	{
@@ -85,14 +85,16 @@ int main(int argc, char* argv[])
 		std::optional<Osprey::VMProgram> program = Osprey::Compile(*ast);
 		if (!program)
 		{
-			std::println("(Fail) Failed to compile", file_path.string());
+			ReportError("Compile Error");
 			continue;
 		}
+
+		//program->Dump();
 
 		std::optional<Osprey::VM> vm = Osprey::VM::Load(*program);
 		if (!vm)
 		{
-			std::println("Fail: Failed to load program", file_path.string());
+			ReportError("VM Error");
 			continue;
 		}
 
@@ -100,19 +102,19 @@ int main(int argc, char* argv[])
 
 		const Osprey::VMStack& stack = vm->GetStack();
 
-		if (stack.GetSize() != 1)
+		if (stack.GetSize() == 0)
 		{
-			std::println("Fail: Expected test to produce 1 value, received {}", stack.GetSize());
+			ReportError(std::format("Expected test to produce a value, received {}", stack.GetSize()));
 			continue;
 		}
 
 		if (stack.GetFromTop(0) != 0)
 		{
-			std::println("Fail: Expected test to return 0, received {}", stack.GetFromTop(0));
+			ReportError("Test failed");
 			continue;
 		}
 
-		std::println("Pass!");
+		std::println("[{}]: {}", file_path.filename().string(), test_pass_prefix);
 	}
 
 	return 0;

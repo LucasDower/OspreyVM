@@ -18,21 +18,23 @@ namespace Osprey
 		Type m_type;
 	};
 
+	using ParameterList = std::vector<FunctionParameter>;
+
 	class ASTFunctionExpr : public ASTExpr
 	{
 	public:
-		ASTFunctionExpr(std::string identifier, ArgumentList args);
+		ASTFunctionExpr(std::vector<FunctionParameter> parameters, Type return_type, std::unique_ptr<ASTBlock> body);
 		virtual ~ASTFunctionExpr() = default;
 
 		// ASTNode
 		virtual ASTVisitorTraversal Accept(ASTVisitor& visitor) const override;
 
-		const std::vector<FunctionParameter>& GetParameters() const;
+		const ParameterList& GetParameters() const;
 		Type GetReturnType() const;
 		const std::unique_ptr<ASTBlock>& GetBody() const;
 
 	private:
-		std::vector<FunctionParameter> m_parameters;
+		ParameterList m_parameters;
 		Type m_return_type;
 		std::unique_ptr<ASTBlock> m_body;
 	};

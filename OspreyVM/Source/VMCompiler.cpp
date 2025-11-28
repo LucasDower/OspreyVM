@@ -11,11 +11,13 @@
 #include "OspreyAST/Expressions/UnaryOp.h"
 #include "OspreyAST/Expressions/BinaryOp.h"
 #include "OspreyAST/Expressions/FunctionCall.h"
+#include "OspreyAST/Expressions/FunctionExpression.h"
 #include "OspreyAST/Statements/VariableDecl.h"
 #include "OspreyAST/Statements/Return.h"
 #include "OspreyAST/Statements/If.h"
 #include "OspreyAST/Statements/Block.h"
 #include "OspreyAST/Statements/Assignment.h"
+#include "OspreyAST/Statements/FunctionDecl.h"
 
 #include <vector>
 #include <unordered_map>
@@ -26,89 +28,6 @@
 
 namespace Osprey
 {
-	int32_t TempIndex = 0;
-
-	class VMScopeStack
-	{
-	public:
-		VMScopeStack(int32_t offset_from_bottom)
-			: m_offset_from_bottom(offset_from_bottom)
-		{
-		}
-
-		void ApplyScopeSizeDelta(int32_t delta)
-		{
-			if (delta > 0)
-			{
-				for (int32_t i = 0; i < delta; ++i)
-				{
-					m_bindings.push_back(std::nullopt);
-				}
-			}
-			else if (delta < 0)
-			{
-				assert(-delta <= m_bindings.size());
-				for (int32_t i = 0; i < delta; ++i)
-				{
-					m_bindings.pop_back();
-				}
-			}
-		}
-
-		int32_t GetOffsetFromBottom() const
-		{
-			return m_offset_from_bottom;
-		}
-
-		int32_t GetCurrentSize() const
-		{
-			return m_bindings.size();
-		}
-
-		bool BindValueToVariable(std::string identifier)
-		{
-			if (HasVariable(identifier))
-			{
-				return false;
-			}
-
-			if (m_bindings.size() == 0)
-			{
-				return false;
-			}
-
-			if (m_bindings.back()->contains(identifier))
-			{
-				return false;
-			}
-
-			m_bindings.back()->insert(identifier);
-			return true;
-		}
-
-		bool HasVariable(const std::string& identifier) const
-		{
-			for (const std::optional<std::set<std::string>>& binding : m_bindings)
-			{
-				if (binding.has_value())
-				{
-					if (binding->contains(identifier))
-					{
-						return true;
-					}
-				}
-			}
-
-			return false;
-		}
-
-		//const std::vector<std::string>& GetIdentifiers() const { return m_identifiers; }
-
-	private:
-		std::vector<std::optional<std::set<std::string>>> m_bindings;
-		int32_t m_offset_from_bottom = 0;
-	};
-
 	struct VMInstructionHandle
 	{
 		int32_t opcode_offset = 0;
@@ -185,9 +104,26 @@ namespace Osprey
 		int32_t m_scope_size_delta;
 	};
 
+	enum class VMCompilePhase
+	{
+		None,
+		FirstPass,
+		DeferredFunctions,
+	};
+
 	class VMCompileContext
 	{
 	public:
+		void RegisterFunctionToCompile(ASTFunctionExpr* function, VMInstructionHandle handle_to_fix)
+		{
+			m_deferred_functions.push_back({ function, handle_to_fix });
+		}
+
+		const std::vector<std::pair<ASTFunctionExpr*, VMInstructionHandle>>& GetDeferredFunctions() const
+		{
+			return m_deferred_functions;
+		}
+
 		size_t GetNextInstructionOffset() const
 		{
 			return instructions.size();
@@ -222,6 +158,9 @@ namespace Osprey
 
 		VMStackBindings& GetStackBindings() { return m_stack_bindings; }
 
+		VMCompilePhase GetPhase() const { return m_phase; }
+		void SetPhase(VMCompilePhase phase) { assert(phase > m_phase); m_phase = phase; }
+
 	private:
 		size_t EmitOpCode(VMOpCode op_code)
 		{
@@ -235,12 +174,12 @@ namespace Osprey
 			return instructions.size() - 1;
 		}
 
-
 	private:
+		std::vector<std::pair<ASTFunctionExpr*, VMInstructionHandle>> m_deferred_functions;
+
 		VMStackBindings m_stack_bindings;
 		std::vector<int32_t> instructions;
-		std::vector<VMScopeStack> scopes; // <- this should be a linear array where each identifier has a numeric scope
-		int32_t static_data_size = 0;
+		VMCompilePhase m_phase = VMCompilePhase::None;
 	};
 
 	class VMCompiler : public ASTVisitor
@@ -359,6 +298,8 @@ namespace Osprey
 
 		ASTVisitorTraversal Visit(const ASTBlock& node)
 		{
+			m_context.GetStackBindings().EnterBlock();
+
 			for (const std::unique_ptr<ASTStmt>& statement : node.GetStatements())
 			{
 				if (statement->Accept(*this) == ASTVisitorTraversal::Stop)
@@ -366,6 +307,8 @@ namespace Osprey
 					return ASTVisitorTraversal::Stop;
 				}
 			}
+
+			m_context.GetStackBindings().ExitBlock();
 
 			return ASTVisitorTraversal::Continue;
 		}
@@ -400,80 +343,149 @@ namespace Osprey
 			return ASTVisitorTraversal::Stop;
 		}
 
-		ASTVisitorTraversal Visit(const class ASTFunctionCall& node)
+		ASTVisitorTraversal Visit(const ASTFunctionDeclarationStmt& node)
 		{
-			std::println("Function calls not supported by the VM compiler");
-			return ASTVisitorTraversal::Stop;
+			VMInstructionHandle handle = m_context.EmitInstruction(VMInstruction::PUSH(0));
+			m_context.GetStackBindings().BindToVariable(node.GetIdentifier());
 
-			/*
-			// Before we call a function, we need to push the address of the instruction we want to continue at once the function returns
-			const VMInstructionHandle return_address_handle = m_context.EmitInstruction(VMInstruction::PUSH(0));
+			// We need to push the instruction offset of the function onto the
+			// data stack and bind the identifier to that value.
 
-			// Next we need to push all the function args onto the data stack
-			// TODO: type check the args match the parameters
+			// We haven't compiled the function's instructions into the
+			// bytecode buffer yet so we need to use a placeholder 0 value
+			// until it has been compiled.
 
-			// Each of these expressions should have pushed one more value on the data stack
-			for (const auto& arg : node.GetArgs().args)
+			// We'll add this node to a 'To Compile' list and add make a note
+			// of this operand that we need to fix.
+
+			m_context.RegisterFunctionToCompile(node.GetFunction().get(), handle);
+
+			return ASTVisitorTraversal::Continue;
+		}
+
+		ASTVisitorTraversal Visit(const class ASTFunctionExpr& node)
+		{
+			assert(m_context.GetPhase() == VMCompilePhase::DeferredFunctions);
+
+			//m_context.GetStackBindings().EnterBlock();
+
+			if (node.GetBody()->Accept(*this) == ASTVisitorTraversal::Stop)
 			{
-				if (arg->Accept(*this) == ASTVisitorTraversal::Stop)
-				{
-					return ASTVisitorTraversal::Stop;
-				}
-			}
-
-			// Push the instruction offset of the function we're calling
-			std::optional<size_t> function_instruction_offset = m_context.GetFunctionInstructionOffset(node.GetIdentifier());
-			if (!function_instruction_offset)
-			{
-				std::println("Couldn't call function");
 				return ASTVisitorTraversal::Stop;
 			}
 
-			m_context.EmitInstruction(VMInstruction::PUSH(*function_instruction_offset));
+			// The semantic analyser should check that the body ends in a return statement.
+			// The data stack looks something like this where x, y, z are the functions arguments:
+			// 
+			// offset:       4                   3  2  1  0
+			// stack:  [..., caller_return_addr, x, y, z, return_value ]
+			//
+			// we want to transform it into:
+			//
+			// offset: 
+			// stack:  [..., return_value, caller_return_addr ]
+			//
+			// and then call JMP
 
-			// Call it!
+			const int32_t return_address_offset = m_context.GetStackBindings().GetTopStackSize();
+
+			if (node.GetParameters().size() > 0)
+			{
+				m_context.EmitInstruction(VMInstruction::SWAP(return_address_offset - 1));
+				// now looks like [..., caller_return_addr, return_value, y, z, x ]
+
+				m_context.EmitInstruction(VMInstruction::POP(node.GetParameters().size()));
+				// now looks like [..., caller_return_addr, return_value ]
+
+			}
+
+			m_context.EmitInstruction(VMInstruction::SWAP(1));
+			// finally [..., return_value, caller_return_addr ]
+
 			m_context.EmitInstruction(VMInstruction::JMP());
 
-			assert(return_address_handle.operand_offset.has_value());
-			m_context.UpdateOperand(*return_address_handle.operand_offset, m_context.GetNextInstructionOffset());
+			//m_context.GetStackBindings().ExitBlock();
 
 			return ASTVisitorTraversal::Continue;
-			*/
+		}
+
+		ASTVisitorTraversal Visit(const class ASTFunctionCall& node)
+		{
+			const VMInstructionHandle return_instruction_offset = m_context.EmitInstruction(VMInstruction::PUSH(0));
+
+			std::optional<int32_t> function_instruction_offset =  m_context.GetStackBindings().GetBindingOffsetFromTop(node.GetIdentifier());
+			if (!function_instruction_offset)
+			{
+				std::println("Failed to call undefined function '{}'", node.GetIdentifier());
+				return ASTVisitorTraversal::Stop;
+			}
+
+			// TODO: handle args (may have to go before function_instruction_offset is calculated
+
+			m_context.EmitInstruction(VMInstruction::DUP(*function_instruction_offset));
+			m_context.EmitInstruction(VMInstruction::JMP());
+
+			const auto next_instruction_offset = m_context.GetNextInstructionOffset();
+			m_context.UpdateOperand(*return_instruction_offset.operand_offset, next_instruction_offset);
+
+			return ASTVisitorTraversal::Continue;
 		}
 		
 		ASTVisitorTraversal Visit(const class ASTProgram& Node)
 		{
 			m_context.GetStackBindings().EnterBlock();
 
-			// Push the return address to continue from once the main function has been executed
-			// It is always instruction 5 (HALT)
-			m_context.EmitInstruction(VMInstruction::PUSH(5));
-
-			// Call the main function
-			const VMInstructionHandle main_function_offset_handle = m_context.EmitInstruction(VMInstruction::PUSH(0));
-
-			m_context.EmitInstruction(VMInstruction::JMP());
-			m_context.EmitInstruction(VMInstruction::HALT());
-
-			// Generate instructions for all statements
-			for (const std::unique_ptr<ASTStmt>& statement : Node.GetStatements())
+			// Generate instructions for all statements (except function expressions that we compile last)
 			{
-				if (statement->Accept(*this) == ASTVisitorTraversal::Stop)
+				m_context.SetPhase(VMCompilePhase::FirstPass);
+
+				for (const std::unique_ptr<ASTStmt>& statement : Node.GetStatements())
 				{
-					return ASTVisitorTraversal::Stop;
+					if (statement->Accept(*this) == ASTVisitorTraversal::Stop)
+					{
+						return ASTVisitorTraversal::Stop;
+					}
 				}
 			}
 
-			std::optional<size_t> entry_instruction_offset; // = m_context.GetFunctionInstructionOffset("main");
-			if (!entry_instruction_offset)
+			// Create a fake call function node
+			ASTFunctionCall main_call_node("main", {});
+			if (main_call_node.Accept(*this) == ASTVisitorTraversal::Stop)
+			{
+				std::println("Failed to call 'main' function");
+				return ASTVisitorTraversal::Stop;
+			}
+
+			// We now have the return value on the stack unaccounted for, let's adjust the binding offsets to accomodate
+			//m_context.GetStackBindings().ApplyOffset(1); // TODO: maybe needed
+
+			// Once main returns we need to halt the program
+			m_context.EmitInstruction(VMInstruction::HALT());
+
+			std::optional<int32_t> main_stack_entry = m_context.GetStackBindings().GetBindingOffsetFromTop("main");
+			if (!main_stack_entry)
 			{
 				std::println("Failed to compile program: no 'main' function");
 				return ASTVisitorTraversal::Stop;
 			}
 
-			assert(main_function_offset_handle.operand_offset.has_value());
-			m_context.UpdateOperand(*main_function_offset_handle.operand_offset, static_cast<int32_t>(*entry_instruction_offset));
-				
+			// Generate instructions for all function expressions
+			{
+				m_context.SetPhase(VMCompilePhase::DeferredFunctions);
+
+				for (const auto& deferred_function : m_context.GetDeferredFunctions())
+				{
+					const auto function_entry_offset = m_context.GetNextInstructionOffset();
+					m_context.UpdateOperand(*deferred_function.second.operand_offset, function_entry_offset);
+
+					if (deferred_function.first->Accept(*this) == ASTVisitorTraversal::Stop)
+					{
+						std::println("Failed to compile function");
+						return ASTVisitorTraversal::Stop;
+					}
+				}
+			}
+
 			m_context.GetStackBindings().ExitBlock();
 
 			return ASTVisitorTraversal::Continue;
